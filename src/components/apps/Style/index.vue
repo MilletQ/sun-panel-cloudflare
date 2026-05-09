@@ -6,11 +6,13 @@ import { useAuthStore, usePanelState } from '@/store'
 import { set as setUserConfig } from '@/api/panel/userConfig'
 import { PanelPanelConfigStyleEnum } from '@/enums/panel'
 import { t } from '@/locales'
+import { getApiUrl } from '@/utils/request/url'
 
 const authStore = useAuthStore()
 const panelState = usePanelState()
 const ms = useMessage()
 const showWallpaperInput = ref(false)
+const uploadImageAction = getApiUrl('/file/uploadImg')
 
 const isSaveing = ref(false)
 
@@ -191,7 +193,7 @@ function resetPanelConfig() {
         {{ $t('apps.baseSettings.wallpaper') }}
       </div>
       <NUpload
-        action="/api/file/uploadImg"
+        :action="uploadImageAction"
         :show-file-list="false"
         name="imgfile"
         :headers="{

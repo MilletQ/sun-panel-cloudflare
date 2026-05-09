@@ -97,7 +97,7 @@ function handleChangeLanuage(value: Language) {
 
         <!-- <NFormItem v-if="isShowCaptcha">
           <div class="w-[120px] h-[34px] mr-[20px] rounded border flex cursor-pointer">
-            <Captcha ref="captchaRef" src="/api/captcha/getImage" />
+            <Captcha ref="captchaRef" :src="getApiUrl('/captcha/getImage')" />
           </div>
           <NInput v-model:value="form.vcode" type="text" placeholder="请输入图像验证码" />
         </NFormItem> -->

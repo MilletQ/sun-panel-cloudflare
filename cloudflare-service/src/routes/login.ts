@@ -4,6 +4,7 @@ import { error, errorByCode, errorDatabase, errorParam, success, successData } f
 import { md5, passwordEncryption, randomCode } from '../lib/crypto'
 import { firstUserByToken, mapUser, sanitizeUser } from '../lib/db'
 import { normalizeString, readJson } from '../lib/request'
+import { withPublicUploadUrls } from '../lib/uploads'
 import { cacheClientToken, clearClientToken, loginRequired } from '../middleware/auth'
 
 type LoginBody = {
@@ -58,7 +59,7 @@ export function registerLoginRoutes(app: Hono<{ Bindings: Env, Variables: Variab
     const clientToken = `${crypto.randomUUID()}-${md5(md5(`userId${user.id}`))}`
     await cacheClientToken(c.env, clientToken, realToken, user)
 
-    const responseUser = sanitizeUser(user)
+    const responseUser = withPublicUploadUrls(c.req.url, sanitizeUser(user))
     responseUser.token = clientToken
     return successData(c, responseUser)
   })

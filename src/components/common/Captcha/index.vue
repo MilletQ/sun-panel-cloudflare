@@ -1,7 +1,7 @@
 <script setup lang='ts'>
 import { NImage } from 'naive-ui'
-import { ref } from 'vue'
-defineProps<{
+import { computed, ref } from 'vue'
+const props = defineProps<{
   src: string
 }>()
 
@@ -11,6 +11,10 @@ const emit = defineEmits<{
 }>()
 
 const randCode = ref<string>('0')
+const imageSrc = computed(() => {
+  const separator = props.src.includes('?') ? '&' : '?'
+  return `${props.src}${separator}${randCode.value}`
+})
 
 function handleClick() {
   randCode.value = String(rand(100, 99999))
@@ -32,7 +36,7 @@ defineExpose({
 <template>
   <!-- <div> -->
   <NImage
-    :src="`${src}?${randCode}`"
+    :src="imageSrc"
     :preview-disabled="true"
     @click="handleClick"
   />

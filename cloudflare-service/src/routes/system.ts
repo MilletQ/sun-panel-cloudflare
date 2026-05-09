@@ -3,7 +3,7 @@ import type { Env, Variables } from '../types'
 import { errorByCode, errorParam, success, successData, successListData } from '../lib/api-response'
 import { getSystemSettingString, placeholders, setSystemSetting } from '../lib/db'
 import { normalizeIds, normalizeNumber, normalizeString, readJson } from '../lib/request'
-import { deleteUploadFromR2, isAllowedImage, storeImageInR2 } from '../lib/uploads'
+import { deleteUploadFromR2, isAllowedImage, storeImageInR2, toPublicUploadUrl } from '../lib/uploads'
 import { loginRequired, publicMode } from '../middleware/auth'
 
 type ModuleConfigBody = {
@@ -129,7 +129,16 @@ export function registerSystemRoutes(app: Hono<{ Bindings: Env, Variables: Varia
       .bind(user.id)
       .all<Record<string, unknown>>()
 
-    return successListData(c, rows.results, rows.results.length)
+    const results = rows.results.map((row) => {
+      const src = typeof row.src === 'string' ? toPublicUploadUrl(c.req.url, row.src) : row.src
+      return {
+        ...row,
+        src,
+        path: src,
+      }
+    })
+
+    return successListData(c, results, results.length)
   })
 
   app.post('/file/deletes', loginRequired, async (c) => {
@@ -179,7 +188,7 @@ export function registerSystemRoutes(app: Hono<{ Bindings: Env, Variables: Varia
       .bind(stored.publicPath, user.id, stored.fileName, 1, stored.ext)
       .run()
 
-    return successData(c, { imageUrl: stored.publicPath })
+    return successData(c, { imageUrl: toPublicUploadUrl(c.req.url, stored.publicPath) })
   })
 
   app.post('/file/uploadFiles', loginRequired, async (c) => {
@@ -212,7 +221,7 @@ export function registerSystemRoutes(app: Hono<{ Bindings: Env, Variables: Varia
         `)
           .bind(stored.publicPath, user.id, stored.fileName, 1, stored.ext)
           .run()
-        succMap[value.name] = stored.publicPath
+        succMap[value.name] = toPublicUploadUrl(c.req.url, stored.publicPath)
       }
       catch {
         errFiles.push(value.name)

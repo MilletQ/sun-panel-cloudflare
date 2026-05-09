@@ -5,6 +5,7 @@ import { cacheKey, deleteCache } from '../lib/cache'
 import { passwordEncryption } from '../lib/crypto'
 import { firstUserById, firstUserByUsername, getSystemSettingJson, mapItemIcon, mapItemIconGroup, mapUser, placeholders, sanitizeUser, setSystemSetting } from '../lib/db'
 import { normalizeIds, normalizeNumber, normalizeString, readJson } from '../lib/request'
+import { toStoredUploadPath, withPublicUploadUrls, withStoredUploadPaths } from '../lib/uploads'
 import { adminRequired, loginRequired, publicMode } from '../middleware/auth'
 
 type UserConfigBody = {
@@ -101,6 +102,10 @@ async function discoverFavicon(env: Env, rawUrl: string) {
   return iconUrl
 }
 
+function mapPublicItemIcon(requestUrl: string, row: ItemIconRow) {
+  return withPublicUploadUrls(requestUrl, mapItemIcon(row))
+}
+
 export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variables }>) {
   app.post('/panel/userConfig/get', publicMode, async (c) => {
     const user = c.get('user')
@@ -114,8 +119,8 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
     let panel: Record<string, unknown> | null = null
     let searchEngine: Record<string, unknown> | null = null
     try {
-      panel = JSON.parse(row.panel_json || 'null')
-      searchEngine = JSON.parse(row.search_engine_json || 'null')
+      panel = withPublicUploadUrls(c.req.url, JSON.parse(row.panel_json || 'null'))
+      searchEngine = withPublicUploadUrls(c.req.url, JSON.parse(row.search_engine_json || 'null'))
     }
     catch {
       panel = null
@@ -132,6 +137,8 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
   app.post('/panel/userConfig/set', loginRequired, async (c) => {
     const body = await readJson<UserConfigBody>(c)
     const user = c.get('user')
+    const panel = withStoredUploadPaths(body.panel ?? {})
+    const searchEngine = withStoredUploadPaths(body.searchEngine ?? {})
 
     await c.env.DB.prepare(`
       INSERT INTO user_config (user_id, panel_json, search_engine_json)
@@ -140,7 +147,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
         panel_json = excluded.panel_json,
         search_engine_json = excluded.search_engine_json
     `)
-      .bind(user.id, JSON.stringify(body.panel ?? {}), JSON.stringify(body.searchEngine ?? {}))
+      .bind(user.id, JSON.stringify(panel), JSON.stringify(searchEngine))
       .run()
 
     return success(c)
@@ -250,7 +257,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
       .bind(groupId, user.id)
       .all<ItemIconRow>()
 
-    return successListData(c, rows.results.map(mapItemIcon), 0)
+    return successListData(c, rows.results.map(row => mapPublicItemIcon(c.req.url, row)), 0)
   })
 
   app.post('/panel/itemIcon/edit', loginRequired, async (c) => {
@@ -261,7 +268,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
 
     const user = c.get('user')
     const id = normalizeNumber(body.id)
-    const iconJson = JSON.stringify(body.icon ?? null)
+    const iconJson = JSON.stringify(withStoredUploadPaths(body.icon ?? null))
     let savedId = id
 
     if (id > 0) {
@@ -309,7 +316,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
       .bind(savedId, user.id)
       .first<ItemIconRow>()
 
-    return successData(c, row ? mapItemIcon(row) : { id: savedId })
+    return successData(c, row ? mapPublicItemIcon(c.req.url, row) : { id: savedId })
   })
 
   app.post('/panel/itemIcon/addMultiple', loginRequired, async (c) => {
@@ -330,7 +337,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
         .bind(
-          JSON.stringify(item.icon ?? null),
+          JSON.stringify(withStoredUploadPaths(item.icon ?? null)),
           normalizeString(item.title),
           normalizeString(item.url),
           normalizeString(item.lanUrl),
@@ -346,7 +353,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
         .bind(Number(inserted.meta.last_row_id))
         .first<ItemIconRow>()
       if (row)
-        saved.push(mapItemIcon(row))
+        saved.push(mapPublicItemIcon(c.req.url, row))
     }
 
     return successData(c, saved)
@@ -417,7 +424,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
         username,
         passwordEncryption(password),
         normalizeString(body.name, username),
-        normalizeString(body.headImage),
+        toStoredUploadPath(normalizeString(body.headImage)),
         1,
         normalizeNumber(body.role, 2),
         normalizeString(body.mail),
@@ -447,7 +454,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
       username,
       normalizeString(body.name),
       normalizeString(body.mail),
-      normalizeString(body.headImage),
+      toStoredUploadPath(normalizeString(body.headImage)),
       normalizeNumber(body.status, 1),
       normalizeNumber(body.role, 2),
       '',
@@ -468,7 +475,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
       await deleteCache(c.env, cacheKey.userToken(storedUser.token))
 
     const updated = await firstUserById(c.env, id)
-    return successData(c, updated ? sanitizeUser(updated) : { id })
+    return successData(c, updated ? withPublicUploadUrls(c.req.url, sanitizeUser(updated)) : { id })
   })
 
   app.post('/panel/users/getList', loginRequired, adminRequired, async (c) => {
@@ -494,7 +501,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
       .bind(...countParams)
       .first<{ count: number }>()
 
-    return successListData(c, rows.results.map(row => sanitizeUser(mapUser(row))), countRow?.count ?? 0)
+    return successListData(c, rows.results.map(row => withPublicUploadUrls(c.req.url, sanitizeUser(mapUser(row)))), countRow?.count ?? 0)
   })
 
   app.post('/panel/users/deletes', loginRequired, adminRequired, async (c) => {
@@ -532,7 +539,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
     if (!user)
       return errorByCode(c, -1, 'No data record found')
 
-    return successData(c, sanitizeUser(user))
+    return successData(c, withPublicUploadUrls(c.req.url, sanitizeUser(user)))
   })
 
   app.post('/panel/users/setPublicVisitUser', loginRequired, adminRequired, async (c) => {

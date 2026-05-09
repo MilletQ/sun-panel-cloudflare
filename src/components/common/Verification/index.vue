@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { NButton, NInput, NModal, useMessage } from 'naive-ui'
 import { Captcha } from '@/components/common'
+import { getApiUrl } from '@/utils/request/url'
 
 const props = defineProps<{
   visible: boolean
@@ -56,7 +57,7 @@ function handleSubmit() {
 <template>
   <div>
     <NModal v-model:show="show" preset="card" style="width: 400px" :title="title ?? '请输入验证码继续'" :mask-closable="false">
-      <Captcha ref="captchaRef" class="rounded border" :src="`/api/captcha/getImageByCaptchaId/${verificationId}/200/60?0`" />
+      <Captcha ref="captchaRef" class="rounded border" :src="getApiUrl(`/captcha/getImageByCaptchaId/${verificationId}/200/60`)" />
       <div class="flex">
         <div class="flex w-[80%]">
           <NInput v-model:value="vCode" placeholder="输入图中字母或数字后继续" @keydown.enter="handleSubmit" />

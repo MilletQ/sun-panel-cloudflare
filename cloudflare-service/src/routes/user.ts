@@ -5,6 +5,7 @@ import { cacheKey, deleteCache } from '../lib/cache'
 import { passwordEncryption, randomCode } from '../lib/crypto'
 import { firstUserById, sanitizeUser } from '../lib/db'
 import { normalizeString, readJson } from '../lib/request'
+import { toPublicUploadUrl, toStoredUploadPath } from '../lib/uploads'
 import { loginRequired, publicMode } from '../middleware/auth'
 
 type UpdateInfoBody = {
@@ -23,7 +24,7 @@ export function registerUserRoutes(app: Hono<{ Bindings: Env, Variables: Variabl
     return successData(c, {
       userId: user.id,
       id: user.id,
-      headImage: user.headImage,
+      headImage: toPublicUploadUrl(c.req.url, user.headImage),
       name: user.name,
       role: user.role,
     })
@@ -35,7 +36,7 @@ export function registerUserRoutes(app: Hono<{ Bindings: Env, Variables: Variabl
       user: {
         id: user.id,
         userId: user.id,
-        headImage: user.headImage,
+        headImage: toPublicUploadUrl(c.req.url, user.headImage),
         name: user.name,
         role: user.role,
         username: user.username,
@@ -47,7 +48,7 @@ export function registerUserRoutes(app: Hono<{ Bindings: Env, Variables: Variabl
   app.post('/user/updateInfo', loginRequired, async (c) => {
     const body = await readJson<UpdateInfoBody>(c)
     const name = normalizeString(body.name).trim()
-    const headImage = normalizeString(body.headImage)
+    const headImage = toStoredUploadPath(normalizeString(body.headImage))
 
     if (name.length < 3 || name.length > 15)
       return errorParam(c, 'name length must be between 3 and 15')
