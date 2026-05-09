@@ -4,6 +4,7 @@ import type { UploadFileInfo } from 'naive-ui'
 import { computed, defineProps } from 'vue'
 import { ItemIcon } from '@/components/common'
 import { useAuthStore } from '@/store'
+import { compressImageFile } from '@/utils/image'
 import { apiRespErrMsg } from '@/utils/request/apiMessage'
 import { getApiUrl } from '@/utils/request/url'
 
@@ -60,6 +61,33 @@ function handleChange() {
 function handleResetBackgroundColor() {
   itemIconInfo.value.backgroundColor = initData.backgroundColor
   handleChange()
+}
+
+async function handleBeforeUpload({
+  file,
+}: {
+  file: UploadFileInfo
+}) {
+  if (!file.file)
+    return true
+
+  try {
+    const compressedFile = await compressImageFile(file.file, {
+      maxWidth: 128,
+      maxHeight: 128,
+      quality: 0.86,
+    })
+
+    file.file = compressedFile
+    file.name = compressedFile.name
+    file.type = compressedFile.type
+    file.fullPath = `/${compressedFile.name}`
+  }
+  catch {
+    return true
+  }
+
+  return true
 }
 
 const handleUploadFinish = ({
@@ -146,9 +174,11 @@ const handleUploadFinish = ({
               :action="uploadImageAction"
               :show-file-list="false"
               name="imgfile"
+              accept="image/*"
               :headers="{
                 token: authStore.token as string,
               }"
+              @before-upload="handleBeforeUpload"
               @finish="handleUploadFinish"
             >
               <NButton size="small">
