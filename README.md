@@ -1,100 +1,452 @@
-[[ 简体中文 ]](https://sun-panel-doc.enianteam.com/zh_cn/introduce/project.html) |
-[[ English ]](https://sun-panel-doc.enianteam.com/introduce/project.html)
+# Sun-Panel Cloudflare 版
 
-<div align=center>
+> 本项目基于 [Sun-Panel v1.3.0 开源版](https://github.com/hslr-s/sun-panel) 改造，默认中文说明。前端仍然是 Vue 3，后端新增 Cloudflare Worker 版本，可部署到 Cloudflare Workers + D1 + KV + R2。
 
-<img src="./doc/images/logo.png" width="100" height="100" />
+<div align="center">
+  <img src="./doc/images/logo.png" width="100" height="100" />
 
-# Sun-Panel
+  <h1>Sun-Panel</h1>
 
-[![Github](https://img.shields.io/badge/Github-123456?logo=github&labelColor=242424)](https://github.com/hslr-s/sun-panel)
-[![Gitee](https://img.shields.io/badge/Gitee-123456?logo=gitee&labelColor=c71d23)](https://gitee.com/hslr/sun-panel)
-[![Bilibili](https://img.shields.io/badge/Bilibili-123456?logo=bilibili&logoColor=fff&labelColor=fb7299)](https://space.bilibili.com/27407696/channel/collectiondetail?sid=2023810)
-[![YouTube](https://img.shields.io/badge/YouTube-123456?logo=youtube&labelColor=ff0000)](https://www.youtube.com/channel/UCKwbFmKU25R602z6P2fgPYg)
-<br>
-[![GitHub User's stars](https://img.shields.io/github/stars/hslr-s%2Fsun-panel?style=flat&logo=github)](https://github.com/hslr-s/sun-panel)
-[![github downloads](https://img.shields.io/github/downloads/hslr-s/sun-panel/total.svg?logo=github)](https://github.com/hslr-s/sun-panel/releases)
+  <p>
+    一个服务器、NAS、个人导航页、浏览器首页面板。
+  </p>
 
-[[ 中文文档 ]](https://sun-panel-doc.enianteam.com/zh_cn) |
-[[ Document ]](https://sun-panel-doc.enianteam.com) |
-[[ Demo ]](http://sunpaneldemo.enianteam.com) 
-
-A server, NAS navigation panel, Homepage, Browser homepage.
-<br>
-一个服务器、NAS导航面板、Homepage、浏览器首页。
-
+  <p>
+    <a href="https://github.com/hslr-s/sun-panel">原项目 GitHub</a> |
+    <a href="https://gitee.com/hslr/sun-panel">原项目 Gitee</a> |
+    <a href="https://sun-panel-doc.enianteam.com/zh_cn">原项目文档</a> |
+    <a href="http://sunpaneldemo.enianteam.com">Demo</a>
+  </p>
 </div>
 
+![主界面](./doc/images/main-dark.png)
 
-![](./doc/images/main-dark.png)
+## 项目说明
 
-> [!IMPORTANT]
-> In order to maintain the livelihood, the author added some [`PRO`] (https://pro.sun-panel.top) function, so the project temporarily entered a closed source state.; At present, the latest version of the open source is `v1.3.0`, [Please see the latest version of closed source](https://github.com/hslr-s/sun-panel/releases).; When the modular technology is developed, the separation of the PRO and the programs will be opened again, and the closed source will have no effect on ordinary users.; Let's look forward to open source again, and at the same time, we are welcome to supervise and review the security of the program.
-> 
-> 作者为了维持生计，增加了一些 [`PRO`](https://pro.sun-panel.top) 功能，所以项目暂时进入闭源状态。目前开源最新版本为`v1.3.0`，[闭源最新版本请查看](https://github.com/hslr-s/sun-panel/releases)。待开发出模块化技术，然后对PRO和主程序进行分离会再次开源，闭源对普通用户没有任何影响。我们一起期待再次开源吧，同时也欢迎各位大佬对程序的安全性进行监督和审查。
+这个仓库在原 Sun-Panel 前端基础上，新增了 `cloudflare-service` 后端：
 
-## 😎 Features
+- 前端：Vue 3 + Vite + Naive UI。
+- 后端：Hono + TypeScript，运行在 Cloudflare Workers。
+- 数据库：Cloudflare D1。
+- 缓存：Cloudflare Workers KV。
+- 文件存储：Cloudflare R2，用于上传图标、壁纸等图片。
 
-- 🍉 Clean interface, powerful functionality, low resource consumption
-- 🍊 Easy to use, visual operation, zero-code usage
-- 🍠 One-click switch between internal and external network modes
-- 🎪 Supports multi-account isolation
-- 🎏 Supports viewing system status
-- 🫙 Supports custom JS, CSS
-- 🍻 Simple usage without the need to connect to an external database
-- 🍾 Rich icon styles for free combination, supports [Iconify icon library](https://icon-sets.iconify.design/)
-- 🚁 Supports opening small windows in the webpage (some third-party websites may block this feature)
+原 Go 后端仍保留在 `service/` 目录中，便于对照迁移逻辑；当前 Cloudflare 部署推荐使用 `cloudflare-service/`。
 
-## 🖼️ Preview Screenshots
+## 功能特点
 
-**Various styles, freely combined**
+- 简洁的导航面板界面。
+- 支持多用户隔离。
+- 支持图标分组、排序、导入导出。
+- 支持本地上传图片作为图标或壁纸，Cloudflare 版会存储到 R2。
+- 支持自定义面板样式、背景、搜索引擎等配置。
+- 支持公开访问用户模式。
+- Cloudflare Worker 后端保留原前端 `token` 请求头认证方式。
 
-![](./doc/images/icon-small-new.png)
-![](./doc/images/transparent-info.png)
-![](./doc/images/transparent-small.png)
-![](./doc/images/solid-color-info.png)
-![](./doc/images/full-color-small.jpg)
+## 目录结构
 
-**Built-in small windows**
+```text
+.
+├─ src/                  Vue 前端源码
+├─ public/               前端静态资源
+├─ cloudflare-service/   Cloudflare Worker 后端
+├─ service/              原 Go 后端源码，保留作迁移参考
+├─ doc/                  图片、捐赠、说明素材
+├─ package.json          前端 npm 脚本
+└─ vite.config.ts        Vite 开发与代理配置
+```
 
-![](./doc/images/window-ssh.png)
-![](./doc/images/window-xunlei.png)
+## 本地开发
 
+### 1. 安装前端依赖
 
+在项目根目录执行：
 
-## 🐳 Deployment tutorial
-[Deployment Tutorial](https://sun-panel-doc.enianteam.com/usage/quick_deploy.html)
+```powershell
+npm install
+```
 
-## 🍵 Donate
+### 2. 安装 Worker 后端依赖
 
-> Open-source development is not easy. If you feel that my project has helped you, you are welcome to [donate](./doc/donate.md) or buy me a cup of tea☕ (please leave your nickname or name in the note if possible). Your support is my motivation, thank you.
+```powershell
+cd cloudflare-service
+npm install
+cd ..
+```
 
+### 3. 初始化本地 D1 数据库
+
+```powershell
+cd cloudflare-service
+npm run db:migrate:local
+cd ..
+```
+
+### 4. 启动 Cloudflare Worker 后端
+
+在项目根目录执行：
+
+```powershell
+npm run dev:service
+```
+
+后端默认运行在：
+
+```text
+http://127.0.0.1:8787
+```
+
+### 5. 启动 Vue 前端
+
+另开一个终端，在项目根目录执行：
+
+```powershell
+npm run dev
+```
+
+前端默认运行在：
+
+```text
+http://127.0.0.1:1002
+```
+
+本地开发时，根目录 `.env` 应保持：
+
+```env
+VITE_GLOB_API_URL=/api
+VITE_APP_API_BASE_URL=http://127.0.0.1:8787/
+```
+
+这样前端请求 `/api` 会由 Vite 代理到本地 Worker 后端。
+
+### 默认管理员账号
+
+本地 D1 迁移会自动创建一个管理员账号：
+
+```text
+账号：admin@sun.cc
+密码：12345678
+```
+
+首次登录后建议立即修改密码。
+
+## Cloudflare 部署教程
+
+下面流程面向第一次使用 Cloudflare 的用户，按步骤做即可。
+
+### 准备条件
+
+你需要先准备：
+
+- 一个 Cloudflare 账号。
+- 本机已安装 Node.js 和 npm。
+- 已经克隆或下载本项目代码。
+
+Cloudflare 官方文档参考：
+
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/)
+- [D1 命令](https://developers.cloudflare.com/workers/wrangler/commands/d1/)
+- [KV 命名空间](https://developers.cloudflare.com/workers/wrangler/commands/kv/)
+- [R2 bucket](https://developers.cloudflare.com/workers/wrangler/commands/r2/)
+- [Pages 直接上传部署](https://developers.cloudflare.com/pages/get-started/direct-upload/)
+
+### 第一步：登录 Cloudflare
+
+进入 Worker 后端目录：
+
+```powershell
+cd cloudflare-service
+```
+
+登录 Cloudflare：
+
+```powershell
+npx wrangler login
+```
+
+命令会打开浏览器，按提示授权即可。
+
+### 第二步：创建 D1 数据库
+
+```powershell
+npx wrangler d1 create sun-panel
+```
+
+命令执行后会输出一段类似下面的配置：
+
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "sun-panel"
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+把输出中的 `database_id` 复制到 `cloudflare-service/wrangler.toml`：
+
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "sun-panel"
+database_id = "你的 D1 database_id"
+migrations_dir = "migrations"
+```
+
+### 第三步：创建 KV 命名空间
+
+创建正式环境 KV：
+
+```powershell
+npx wrangler kv namespace create CACHE
+```
+
+创建预览环境 KV：
+
+```powershell
+npx wrangler kv namespace create CACHE_PREVIEW
+```
+
+两个命令都会输出 `id`。将它们填入 `cloudflare-service/wrangler.toml`：
+
+```toml
+[[kv_namespaces]]
+binding = "CACHE"
+id = "正式环境 KV 的 id"
+preview_id = "预览环境 KV 的 id"
+```
+
+KV 用来缓存登录 token、用户信息、系统配置、favicon 查询结果等。
+
+### 第四步：创建 R2 存储桶
+
+创建正式环境 R2：
+
+```powershell
+npx wrangler r2 bucket create sun-panel-uploads
+```
+
+创建预览环境 R2：
+
+```powershell
+npx wrangler r2 bucket create sun-panel-uploads-preview
+```
+
+确认 `cloudflare-service/wrangler.toml` 中有：
+
+```toml
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "sun-panel-uploads"
+preview_bucket_name = "sun-panel-uploads-preview"
+```
+
+R2 用来保存用户上传的图片。前端仍然访问 `/uploads/...`，Worker 会从 R2 读取并返回图片。
+
+### 第五步：迁移远程 D1 数据库
+
+在 `cloudflare-service` 目录执行：
+
+```powershell
+npm run db:migrate:remote
+```
+
+这一步会在 Cloudflare D1 中创建表，并写入默认管理员账号。
+
+### 第六步：部署 Worker 后端
+
+在 `cloudflare-service` 目录执行：
+
+```powershell
+npm run deploy
+```
+
+部署成功后，终端会输出 Worker 地址，通常类似：
+
+```text
+https://sun-panel-cloudflare-service.<你的账号>.workers.dev
+```
+
+记下这个地址，后面部署前端时要用。
+
+### 第七步：配置前端生产 API 地址
+
+回到项目根目录：
+
+```powershell
+cd ..
+```
+
+生产环境前端不能继续只写 `/api`，因为 Cloudflare Pages 上的 `/api` 默认不会自动代理到 Worker。
+
+构建前需要把 `VITE_GLOB_API_URL` 设置为 Worker 的完整 API 地址：
+
+```powershell
+$env:VITE_GLOB_API_URL="https://你的-worker地址.workers.dev/api"
+npm run build
+```
+
+例如：
+
+```powershell
+$env:VITE_GLOB_API_URL="https://sun-panel-cloudflare-service.example.workers.dev/api"
+npm run build
+```
+
+构建完成后会生成 `dist/` 目录。
+
+### 第八步：部署前端到 Cloudflare Pages
+
+#### 方法 A：使用命令行部署
+
+首次创建 Pages 项目：
+
+```powershell
+npx wrangler pages project create sun-panel-cloudflare
+```
+
+部署前端静态文件：
+
+```powershell
+npx wrangler pages deploy dist --project-name sun-panel-cloudflare
+```
+
+部署成功后，Cloudflare 会输出 Pages 地址，通常类似：
+
+```text
+https://sun-panel-cloudflare.pages.dev
+```
+
+#### 方法 B：使用 Cloudflare 控制台部署
+
+如果你不想用命令行部署前端，也可以用控制台：
+
+1. 打开 Cloudflare Dashboard。
+2. 进入 Workers & Pages。
+3. 选择 Create application。
+4. 选择 Pages。
+5. 上传项目构建后的 `dist/` 目录，或连接你的 GitHub 仓库。
+6. 如果使用 GitHub 自动构建，构建命令填写 `npm run build`，输出目录填写 `dist`。
+7. 在 Pages 的环境变量中添加：
+
+```text
+VITE_GLOB_API_URL=https://你的-worker地址.workers.dev/api
+```
+
+注意：Vite 的环境变量是在构建时写入前端代码的，修改后需要重新部署前端。
+
+### 第九步：访问和登录
+
+打开 Cloudflare Pages 给出的前端地址，使用默认账号登录：
+
+```text
+账号：admin@sun.cc
+密码：12345678
+```
+
+登录成功后，建议先修改管理员密码。
+
+## 常见问题
+
+### 1. 前端提示网络错误
+
+先确认前端构建时的 API 地址是否正确：
+
+```text
+VITE_GLOB_API_URL=https://你的-worker地址.workers.dev/api
+```
+
+如果是本地开发，`.env` 应使用：
+
+```env
+VITE_GLOB_API_URL=/api
+VITE_APP_API_BASE_URL=http://127.0.0.1:8787/
+```
+
+### 2. 上传图片失败
+
+确认 R2 bucket 已创建，并且 `wrangler.toml` 中存在：
+
+```toml
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "sun-panel-uploads"
+preview_bucket_name = "sun-panel-uploads-preview"
+```
+
+然后重新部署 Worker：
+
+```powershell
+cd cloudflare-service
+npm run deploy
+```
+
+### 3. 登录后马上过期
+
+确认 KV 命名空间已经创建，并且 `wrangler.toml` 中的 `id`、`preview_id` 已替换为真实值。
+
+### 4. D1 没有表或默认账号不存在
+
+重新执行远程迁移：
+
+```powershell
+cd cloudflare-service
+npm run db:migrate:remote
+```
+
+### 5. 系统监控没有真实 CPU、内存、磁盘数据
+
+Cloudflare Worker 运行在边缘网络中，不能读取你本机或服务器的系统资源，所以 Cloudflare 版系统监控接口只返回空值结构，避免前端报错。
+
+## 截图预览
+
+**多种图标样式**
+
+![图标样式](./doc/images/icon-small-new.png)
+![透明背景信息](./doc/images/transparent-info.png)
+![透明背景小图标](./doc/images/transparent-small.png)
+![纯色背景信息](./doc/images/solid-color-info.png)
+![完整颜色小图标](./doc/images/full-color-small.jpg)
+
+**内置小窗口**
+
+![SSH 小窗口](./doc/images/window-ssh.png)
+![迅雷小窗口](./doc/images/window-xunlei.png)
+
+## 关于原作者
+
+原项目作者：**[红烧猎人](https://blog.enianteam.com/u/sun/content/11)**
+
+原项目仓库：[hslr-s/sun-panel](https://github.com/hslr-s/sun-panel)
+
+原作者曾说明：为了维持项目发展，后续加入了一些 [`PRO`](https://pro.sun-panel.top) 功能，因此项目暂时进入闭源状态；当前开源版本为 `v1.3.0`。本仓库基于该开源版本进行 Cloudflare Worker 适配。
+
+## 捐赠支持
+
+开源开发不易，如果原项目对你有帮助，可以通过原项目的捐赠页面支持作者：
+
+[查看捐赠说明](./doc/donate.md)
 
 <a href="https://www.paypal.me/hslrs">
-<img height="60" src="./doc/images/donate/paypal.png" target="_blank"></img> 
+  <img height="60" src="./doc/images/donate/paypal.png" />
 </a>
 
+| 微信 | 支付宝 |
+| --- | --- |
+| <img height="300" src="./doc/images/donate/weixin.png" /> | <img height="300" src="./doc/images/donate/alipay.png" /> |
 
-|   |   |
-| ------------ | ------------ |
-| <img height="300" src="./doc/images/donate/weixin.png"/> |  <img height="300" src="./doc/images/donate/alipay.png" /> |
+## 社区交流
 
-## 🏖️ Communication group & community
+- GitHub Discussions：[hslr-s/sun-panel/discussions](https://github.com/hslr-s/sun-panel/discussions)
+- QQ 交流群二维码：
 
-Author：**[红烧猎人](https://blog.enianteam.com/u/sun/content/11)**
+<img src="./doc/images/qq_group_qr2.png" height="350" />
 
-[Github Discussions](https://github.com/hslr-s/sun-panel/discussions)
+## 致谢
 
-QQ交流群，进不去可以点上方连接联系作者
-
-<img src="./doc/images/qq_group_qr2.png"  height="350" />
-
-## ❤️ Thanks
+感谢原项目作者和贡献者：
 
 - [Roc](https://github.com/RocCheng)
 - [jackloves111](https://github.com/jackloves111)
 - [Rock.L](https://github.com/gitlyp)
-
 
 ---
 
