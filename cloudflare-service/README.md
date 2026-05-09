@@ -1,6 +1,6 @@
 # Sun Panel Cloudflare Worker 后端
 
-这个目录是对原 Go 后端 `service/` 的 Cloudflare Worker 版本重写。
+这个目录是 Sun-Panel Cloudflare 版的 Worker 后端，替代原来的 Go 后端。
 
 技术栈：
 
@@ -44,22 +44,21 @@ npm run dev:service
 http://127.0.0.1:8787
 ```
 
-前端 `.env` 中的 API 地址应指向：
+前端本地开发时，根目录 `.env.development` 中的 API 地址应指向：
 
 ```env
 VITE_GLOB_API_URL=/api
 VITE_APP_API_BASE_URL=http://127.0.0.1:8787/
 ```
 
-根目录 `.env`、`.env.development`、`.env.production` 也不会提交到 Git，第一次运行前请在仓库根目录执行：
+根目录不再需要单独创建 `.env`。`.env.development`、`.env.production` 不会提交到 Git，第一次运行前请在仓库根目录执行：
 
 ```sh
-copy .env.example .env
 copy .env.development.example .env.development
 copy .env.production.example .env.production
 ```
 
-`npm run dev` 会自动读取 `.env.development`，`npm run build` 会自动读取 `.env.production`。
+`npm run dev` 会自动读取 `.env.development`，`npm run build` 会自动读取 `.env.production`。`.env.example` 仅作为通用环境变量参考，不是必须复制的运行文件。
 
 ## Cloudflare 绑定
 
@@ -79,7 +78,7 @@ copy wrangler.example.toml wrangler.toml
 
 ## 默认账号
 
-第一次迁移会自动创建一个管理员账号，和原 Go 后端保持一致：
+第一次迁移会自动创建一个管理员账号：
 
 - 账号：`admin@sun.cc`
 - 密码：`12345678`
@@ -106,7 +105,7 @@ npm run deploy
 
 - API 统一挂载在 `/api` 下，匹配当前 Vue 前端的代理方式。
 - 登录认证继续兼容当前前端使用的 `token` 请求头。
-- D1 保存原 Gorm 模型对应的数据表。
+- D1 保存面板用户、图标、配置等业务数据。
 - KV 用于缓存客户端 token、用户信息、系统配置和 favicon 查询结果。
 - R2 保存上传图片，Worker 通过 `/uploads/...` 路径读取并返回给前端。
 - Cloudflare Worker 无法读取宿主机 CPU、内存、磁盘等信息，因此系统监控接口返回稳定的空值结构，避免前端调用失败。

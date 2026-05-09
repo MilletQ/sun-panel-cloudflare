@@ -1,6 +1,6 @@
 # Sun-Panel Cloudflare 版
 
-> 本项目基于 [Sun-Panel v1.3.0 开源版](https://github.com/hslr-s/sun-panel) 改造，默认中文说明。前端仍然是 Vue 3，后端新增 Cloudflare Worker 版本，可部署到 Cloudflare Workers + D1 + KV + R2。
+> 本项目基于 [Sun-Panel v1.3.0 开源版](https://github.com/hslr-s/sun-panel) 改造，默认中文说明。前端仍然是 Vue 3，后端已替换为 Cloudflare Worker 版本，可部署到 Cloudflare Workers + D1 + KV + R2。
 
 <div align="center">
   <img src="./doc/images/logo.png" width="100" height="100" />
@@ -23,7 +23,7 @@
 
 ## 项目说明
 
-这个仓库在原 Sun-Panel 前端基础上，新增了 `cloudflare-service` 后端：
+这个仓库在原 Sun-Panel 前端基础上，使用 `cloudflare-service` 作为后端：
 
 - 前端：Vue 3 + Vite + Naive UI。
 - 后端：Hono + TypeScript，运行在 Cloudflare Workers。
@@ -31,7 +31,7 @@
 - 缓存：Cloudflare Workers KV。
 - 文件存储：Cloudflare R2，用于上传图标、壁纸等图片。
 
-原 Go 后端仍保留在 `service/` 目录中，便于对照迁移逻辑；当前 Cloudflare 部署推荐使用 `cloudflare-service/`。
+原 Go 后端目录已不再作为当前项目的一部分维护，Cloudflare 版只使用 `cloudflare-service/`。
 
 ## 功能特点
 
@@ -50,7 +50,6 @@
 ├─ src/                  Vue 前端源码
 ├─ public/               前端静态资源
 ├─ cloudflare-service/   Cloudflare Worker 后端
-├─ service/              原 Go 后端源码，保留作迁移参考
 ├─ doc/                  图片、捐赠、说明素材
 ├─ package.json          前端 npm 脚本
 └─ vite.config.ts        Vite 开发与代理配置
@@ -60,18 +59,14 @@
 
 ### 1. 准备环境配置
 
-项目不会提交真实 `.env`，第一次运行前需要从示例文件复制一份：
-
-```powershell
-Copy-Item .env.example .env
-```
-
-推荐再分别复制开发和生产环境配置，这样不用在本地开发和生产构建之间来回修改 `.env`：
+项目不会提交真实环境配置。根目录不再需要单独创建 `.env`，推荐只使用 Vite 的模式配置文件，这样本地开发和生产构建不用来回修改同一个文件：
 
 ```powershell
 Copy-Item .env.development.example .env.development
 Copy-Item .env.production.example .env.production
 ```
+
+如果你之前已经创建过 `.env`，可以删除它；`.env.example` 仅作为通用环境变量参考保留。
 
 本地开发配置 `.env.development`：
 
@@ -417,7 +412,7 @@ VITE_GLOB_API_URL=https://你的-worker地址.workers.dev/api
 VITE_GLOB_API_URL=https://你的-worker地址.workers.dev/api
 ```
 
-如果是本地开发，`.env` 应使用：
+如果是本地开发，`.env.development` 应使用：
 
 ```env
 VITE_GLOB_API_URL=/api
