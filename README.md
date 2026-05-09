@@ -58,7 +58,41 @@
 
 ## 本地开发
 
-### 1. 安装前端依赖
+### 1. 准备环境配置
+
+项目不会提交真实 `.env`，第一次运行前需要从示例文件复制一份：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+推荐再分别复制开发和生产环境配置，这样不用在本地开发和生产构建之间来回修改 `.env`：
+
+```powershell
+Copy-Item .env.development.example .env.development
+Copy-Item .env.production.example .env.production
+```
+
+本地开发配置 `.env.development`：
+
+```env
+VITE_GLOB_API_URL=/api
+VITE_APP_API_BASE_URL=http://127.0.0.1:8787/
+```
+
+生产构建配置 `.env.production`：
+
+```env
+VITE_GLOB_API_URL=https://你的-worker地址.workers.dev/api
+VITE_APP_API_BASE_URL=
+```
+
+之后：
+
+- `npm run dev` 会自动读取 `.env.development`，请求本地 `8787`。
+- `npm run build` 会自动读取 `.env.production`，请求线上 Worker。
+
+### 2. 安装前端依赖
 
 在项目根目录执行：
 
@@ -66,7 +100,7 @@
 npm install
 ```
 
-### 2. 安装 Worker 后端依赖
+### 3. 安装 Worker 后端依赖
 
 ```powershell
 cd cloudflare-service
@@ -74,7 +108,17 @@ npm install
 cd ..
 ```
 
-### 3. 初始化本地 D1 数据库
+### 4. 准备 Worker 本地配置
+
+`wrangler.toml` 会包含你的 Cloudflare D1、KV、R2 资源 ID，因此不会提交到 Git。第一次运行前需要从示例文件复制一份：
+
+```powershell
+Copy-Item cloudflare-service/wrangler.example.toml cloudflare-service/wrangler.toml
+```
+
+本地开发时可以先保留示例中的占位 ID，Wrangler 会使用本地模拟资源。部署到 Cloudflare 前再替换为真实 ID。
+
+### 5. 初始化本地 D1 数据库
 
 ```powershell
 cd cloudflare-service
@@ -82,7 +126,7 @@ npm run db:migrate:local
 cd ..
 ```
 
-### 4. 启动 Cloudflare Worker 后端
+### 6. 启动 Cloudflare Worker 后端
 
 在项目根目录执行：
 
@@ -96,7 +140,7 @@ npm run dev:service
 http://127.0.0.1:8787
 ```
 
-### 5. 启动 Vue 前端
+### 7. 启动 Vue 前端
 
 另开一个终端，在项目根目录执行：
 
@@ -110,7 +154,7 @@ npm run dev
 http://127.0.0.1:1002
 ```
 
-本地开发时，根目录 `.env` 应保持：
+本地开发时，根目录 `.env.development` 应保持：
 
 ```env
 VITE_GLOB_API_URL=/api
@@ -151,6 +195,12 @@ Cloudflare 官方文档参考：
 - [Pages 直接上传部署](https://developers.cloudflare.com/pages/get-started/direct-upload/)
 
 ### 第一步：登录 Cloudflare
+
+如果你还没有本地 `wrangler.toml`，先从示例文件复制：
+
+```powershell
+Copy-Item cloudflare-service/wrangler.example.toml cloudflare-service/wrangler.toml
+```
 
 进入 Worker 后端目录：
 
@@ -277,7 +327,20 @@ cd ..
 
 生产环境前端不能继续只写 `/api`，因为 Cloudflare Pages 上的 `/api` 默认不会自动代理到 Worker。
 
-构建前需要把 `VITE_GLOB_API_URL` 设置为 Worker 的完整 API 地址：
+推荐修改 `.env.production`，把 `VITE_GLOB_API_URL` 设置为 Worker 的完整 API 地址：
+
+```env
+VITE_GLOB_API_URL=https://你的-worker地址.workers.dev/api
+VITE_APP_API_BASE_URL=
+```
+
+然后执行：
+
+```powershell
+npm run build
+```
+
+也可以临时通过命令行覆盖：
 
 ```powershell
 $env:VITE_GLOB_API_URL="https://你的-worker地址.workers.dev/api"

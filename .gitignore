@@ -28,7 +28,11 @@ coverage
 *.sw?
 
 # Environment variables files
+.env
+.env.development
+.env.production
 /service/.env
+cloudflare-service/wrangler.toml
 .history
 service_node
 

@@ -11,7 +11,15 @@
 
 ## 本地运行
 
-第一次使用前，先安装依赖并初始化本地 D1 数据库：
+第一次使用前，先复制 Worker 配置示例：
+
+```sh
+copy wrangler.example.toml wrangler.toml
+```
+
+`wrangler.toml` 会包含你的 Cloudflare D1、KV、R2 资源 ID，因此不会提交到 Git。
+
+然后安装依赖并初始化本地 D1 数据库：
 
 ```sh
 npm install
@@ -43,6 +51,16 @@ VITE_GLOB_API_URL=/api
 VITE_APP_API_BASE_URL=http://127.0.0.1:8787/
 ```
 
+根目录 `.env`、`.env.development`、`.env.production` 也不会提交到 Git，第一次运行前请在仓库根目录执行：
+
+```sh
+copy .env.example .env
+copy .env.development.example .env.development
+copy .env.production.example .env.production
+```
+
+`npm run dev` 会自动读取 `.env.development`，`npm run build` 会自动读取 `.env.production`。
+
 ## Cloudflare 绑定
 
 `wrangler.toml` 中需要配置以下绑定：
@@ -52,6 +70,12 @@ VITE_APP_API_BASE_URL=http://127.0.0.1:8787/
 - `UPLOADS`：Cloudflare R2 bucket，用于保存上传的图标和壁纸。
 
 创建资源后，需要把 `wrangler.toml` 中的占位 ID 替换成真实 ID。
+
+如果没有 `wrangler.toml`，先复制示例文件：
+
+```sh
+copy wrangler.example.toml wrangler.toml
+```
 
 ## 默认账号
 
