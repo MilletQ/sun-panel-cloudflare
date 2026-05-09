@@ -1,10 +1,10 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "module": "ESNext",
     "target": "ESNext",
     "lib": ["DOM", "ESNext"],
     "strict": true,
+    "ignoreDeprecations": "6.0",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "jsx": "preserve",
@@ -19,5 +19,13 @@
     },
     "types": ["vite/client", "node", "naive-ui/volar"]
   },
-  "exclude": ["node_modules", "dist", "service"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "vite.config.ts",
+    "config/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "service", "cloudflare-service"]
 }

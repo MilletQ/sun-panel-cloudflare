@@ -1,0 +1,23 @@
+{
+  "name": "sun-panel-cloudflare-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:local": "wrangler dev --ip 127.0.0.1 --port 8787",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:migrate:local": "wrangler d1 migrations apply sun-panel --local",
+    "db:migrate:remote": "wrangler d1 migrations apply sun-panel --remote",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "^4.7.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260509.0",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.15.0"
+  }
+}

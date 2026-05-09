@@ -6,7 +6,6 @@ import { useAppStore } from '@/store'
 import srcSvglogo from '@/assets/logo.svg'
 import srcGitee from '@/assets/about_image/gitee.png'
 import srcGithub from '@/assets/about_image/github.png'
-import srcDocker from '@/assets/about_image/docker.png'
 import srcBilibili from '@/assets/about_image/bilibili.png'
 import srcYoutube from '@/assets/about_image/youtube.png'
 import srcQQGroupQR from '@/assets/about_image/qq_group_qr2.png'
@@ -76,10 +75,6 @@ onMounted(() => {
         <div class="flex items-center mx-[10px]">
           <img class="w-[20px] h-[20px] mr-[5px]" :src="srcGitee" alt="">
           <a href="https://gitee.com/hslr/sun-panel" target="_blank" class="link">Gitee</a>
-        </div>
-        <div class="flex items-center mx-[10px]">
-          <img class="w-[20px] h-[20px] mr-[5px]" :src="srcDocker" alt="">
-          <a href="https://hub.docker.com/r/hslr/sun-panel" target="_blank" class="link">Docker</a>
         </div>
         <div class="flex items-center mx-[10px]">
           <img class="w-[20px] h-[20px] mr-[5px]" :src="srcBilibili" alt="">
