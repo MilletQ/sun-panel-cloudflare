@@ -51,11 +51,6 @@
 - 支持公开访问用户模式。
 - Cloudflare Worker 后端保留原前端 `token` 请求头认证方式。
 
-## 开发约定
-
-- TypeScript 类型定义默认使用 `type`，项目已关闭 `@typescript-eslint/consistent-type-definitions` 的强制 `interface` 要求。
-- 只有需要 TypeScript 声明合并的全局类型仍保留 `interface`，例如 `ImportMetaEnv` 和 `Window`。
-
 ## 目录结构
 
 ```text
@@ -63,7 +58,7 @@
 ├─ src/                  Vue 前端源码
 ├─ public/               前端静态资源
 ├─ cloudflare-service/   Cloudflare Worker 后端
-├─ doc/                  图片、捐赠、说明素材
+├─ doc/                  图片、说明素材
 ├─ package.json          前端 npm 脚本
 └─ vite.config.ts        Vite 开发与代理配置
 ```
@@ -78,8 +73,6 @@
 Copy-Item .env.development.example .env.development
 Copy-Item .env.production.example .env.production
 ```
-
-如果你之前已经创建过 `.env`，可以删除它；`.env.example` 仅作为通用环境变量参考保留。
 
 本地开发配置 `.env.development`：
 
@@ -489,11 +482,6 @@ Cloudflare Worker 运行在边缘网络中，不能读取你本机或服务器�
 ![透明背景小图标](./doc/images/transparent-small.png)
 ![纯色背景信息](./doc/images/solid-color-info.png)
 ![完整颜色小图标](./doc/images/full-color-small.jpg)
-
-**内置小窗口**
-
-![SSH 小窗口](./doc/images/window-ssh.png)
-![迅雷小窗口](./doc/images/window-xunlei.png)
 
 ## 关于原作者
 
