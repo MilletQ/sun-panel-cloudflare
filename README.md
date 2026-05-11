@@ -33,6 +33,14 @@
 
 原 Go 后端目录已不再作为当前项目的一部分维护，Cloudflare 版只使用 `cloudflare-service/`。
 
+## Cloudflare 部署优势
+
+- 成本低：Workers、D1、KV、R2 和 Pages 都有可用的免费额度，个人导航面板、小团队面板通常可以在免费额度内运行。
+- 免维护：不需要自建服务器、反向代理、数据库服务和对象存储服务，部署后主要由 Cloudflare 托管运行。
+- 全球访问：Cloudflare 边缘网络天然适合静态前端、API 和图片公开资源分发。
+- 部署简单：前端可部署到 Cloudflare Pages，后端运行在 Cloudflare Workers，数据库、缓存和图片存储都使用同一平台资源。
+- 数据持久化完整：D1 保存业务数据，KV 处理短期缓存，R2 保存上传图片，适合轻量级面板长期运行。
+
 ## 功能特点
 
 - 简洁的导航面板界面。
@@ -492,38 +500,3 @@ Cloudflare Worker 运行在边缘网络中，不能读取你本机或服务器�
 原项目作者：**[红烧猎人](https://blog.enianteam.com/u/sun/content/11)**
 
 原项目仓库：[hslr-s/sun-panel](https://github.com/hslr-s/sun-panel)
-
-原作者曾说明：为了维持项目发展，后续加入了一些 [`PRO`](https://pro.sun-panel.top) 功能，因此项目暂时进入闭源状态；当前开源版本为 `v1.3.0`。本仓库基于该开源版本进行 Cloudflare Worker 适配。
-
-## 捐赠支持
-
-开源开发不易，如果原项目对你有帮助，可以通过原项目的捐赠页面支持作者：
-
-[查看捐赠说明](./doc/donate.md)
-
-<a href="https://www.paypal.me/hslrs">
-  <img height="60" src="./doc/images/donate/paypal.png" />
-</a>
-
-| 微信 | 支付宝 |
-| --- | --- |
-| <img height="300" src="./doc/images/donate/weixin.png" /> | <img height="300" src="./doc/images/donate/alipay.png" /> |
-
-## 社区交流
-
-- GitHub Discussions：[hslr-s/sun-panel/discussions](https://github.com/hslr-s/sun-panel/discussions)
-- QQ 交流群二维码：
-
-<img src="./doc/images/qq_group_qr2.png" height="350" />
-
-## 致谢
-
-感谢原项目作者和贡献者：
-
-- [Roc](https://github.com/RocCheng)
-- [jackloves111](https://github.com/jackloves111)
-- [Rock.L](https://github.com/gitlyp)
-
----
-
-[![Star History Chart](https://api.star-history.com/svg?repos=hslr-s/sun-panel&type=Date)](https://star-history.com/#hslr-s/sun-panel&Date)

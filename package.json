@@ -11,8 +11,7 @@
   "scripts": {
     "dev": "vite",
     "dev:service": "npm --prefix cloudflare-service run dev:local",
-    "build": "run-s add-version type-check build-only",
-    "add-version": "node ./add-frontend-version.js",
+    "build": "run-s type-check build-only",
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --noEmit",
