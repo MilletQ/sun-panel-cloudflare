@@ -11,7 +11,7 @@ import srcYoutube from '@/assets/about_image/youtube.png'
 import srcQQGroupQR from '@/assets/about_image/qq_group_qr2.png'
 import { RoundCardModal } from '@/components/common'
 
-interface Version {
+type Version = {
   versionName: string
   versionCode: number
 }

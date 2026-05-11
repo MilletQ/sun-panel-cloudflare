@@ -1,6 +1,6 @@
 import type { Hono } from 'hono'
 import type { Env, UserRow, Variables } from '../types'
-import { error, errorByCode, errorDatabase, errorParam, success, successData } from '../lib/api-response'
+import { error, errorByCode, errorParam, success, successData } from '../lib/api-response'
 import { md5, passwordEncryption, randomCode } from '../lib/crypto'
 import { firstUserByToken, mapUser, sanitizeUser } from '../lib/db'
 import { normalizeString, readJson } from '../lib/request'
@@ -13,7 +13,7 @@ type LoginBody = {
   vcode?: string
 }
 
-export function registerLoginRoutes(app: Hono<{ Bindings: Env, Variables: Variables }>) {
+export function registerLoginRoutes(app: Hono<{ Bindings: Env; Variables: Variables }>) {
   app.post('/login', async (c) => {
     const body = await readJson<LoginBody>(c)
     const username = normalizeString(body.username).trim()
@@ -59,7 +59,7 @@ export function registerLoginRoutes(app: Hono<{ Bindings: Env, Variables: Variab
     const clientToken = `${crypto.randomUUID()}-${md5(md5(`userId${user.id}`))}`
     await cacheClientToken(c.env, clientToken, realToken, user)
 
-    const responseUser = withPublicUploadUrls(c.req.url, sanitizeUser(user))
+    const responseUser = withPublicUploadUrls(c.env, sanitizeUser(user))
     responseUser.token = clientToken
     return successData(c, responseUser)
   })

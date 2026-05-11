@@ -1,75 +1,71 @@
 declare namespace Panel {
 
-    interface Info extends ItemInfo {
+  type Info = {
 
-    }
+  } & ItemInfo
 
-    interface ItemInfo extends Common.InfoBase {
-        icon: ItemIcon |null
-        title: string
-        url: string
-        sort?: number
-        lanUrl?: string
-        description?: string
-        openMethod: number
-        itemIconGroupId ?:number
-    }
+  type ItemInfo = {
+    icon: ItemIcon | null
+    title: string
+    url: string
+    sort?: number
+    lanUrl?: string
+    description?: string
+    openMethod: number
+    itemIconGroupId?: number
+  } & Common.InfoBase
 
-    interface ItemIconGroup extends Common.InfoBase {
-        icon?: string
-        title?: string
-        sort?:number
-    }
+  type ItemIconGroup = {
+    icon?: string
+    title?: string
+    sort?: number
+  } & Common.InfoBase
 
-    interface ItemIcon {
-        itemType: number
-        src ?: string
-        text ?: string
-        // bgColor ?: string
-        backgroundColor ?: string
-    }
+  type ItemIcon = {
+    itemType: number
+    src?: string
+    text?: string
+    // bgColor ?: string
+    backgroundColor?: string
+  }
 
-    interface State {
-        rightSiderCollapsed: boolean
-        leftSiderCollapsed: boolean
-        networkMode:PanelStateNetworkModeEnum | null
-        panelConfig:panelConfig
-    }
+  type State = {
+    rightSiderCollapsed: boolean
+    leftSiderCollapsed: boolean
+    networkMode: PanelStateNetworkModeEnum | null
+    panelConfig: panelConfig
+  }
 
-    interface panelConfig{
-        backgroundImageSrc?:string
-        backgroundBlur?:number
-        backgroundMaskNumber?:number
-        iconStyle?:PanelPanelConfigStyleEnum
-        iconTextColor?:string
-        iconTextInfoHideDescription?:boolean
-        iconTextIconHideTitle?:boolean
-        logoText?:string
-        logoImageSrc?:string
-        clockShowSecond?:boolean
-        clockColor?:string
-        searchBoxShow?:boolean
-        searchBoxSearchIcon?:boolean
-        marginTop?:number
-        marginBottom?:number
-        maxWidth?:number
-        maxWidthUnit:string
-        marginX?:number
-        footerHtml?:string
-        systemMonitorShow?:boolean
-        systemMonitorShowTitle?:boolean
-        systemMonitorPublicVisitModeShow?:boolean
-        netModeChangeButtonShow?:boolean
-    }
+  type panelConfig = {
+    backgroundImageSrc?: string
+    backgroundBlur?: number
+    backgroundMaskNumber?: number
+    iconStyle?: PanelPanelConfigStyleEnum
+    iconTextColor?: string
+    iconTextInfoHideDescription?: boolean
+    iconTextIconHideTitle?: boolean
+    logoText?: string
+    logoImageSrc?: string
+    clockShowSecond?: boolean
+    clockColor?: string
+    searchBoxShow?: boolean
+    searchBoxSearchIcon?: boolean
+    marginTop?: number
+    marginBottom?: number
+    maxWidth?: number
+    maxWidthUnit: string
+    marginX?: number
+    footerHtml?: string
+    netModeChangeButtonShow?: boolean
+  }
 
-    interface userConfig{
-        panel:panelConfig
-        searchEngine?:any
-    }
+  type userConfig = {
+    panel: panelConfig
+    searchEngine?: any
+  }
 
-    interface ItemIconSortRequest{
-        sortItems:Common.SortItemRequest[]
-        itemIconGroupId:number
-    }
+  type ItemIconSortRequest = {
+    sortItems: Common.SortItemRequest[]
+    itemIconGroupId: number
+  }
 }
-

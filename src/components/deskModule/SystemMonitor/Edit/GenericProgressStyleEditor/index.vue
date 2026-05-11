@@ -7,7 +7,7 @@ import GenericProgress from '../../components/GenericProgress/index.vue'
 import { PanelPanelConfigStyleEnum } from '@/enums'
 import { defautSwatchesBackground } from '@/utils/defaultData'
 
-interface Emit {
+type Emit = {
   (e: 'update:genericProgressStyleExtendParam', visible: GenericProgressStyleExtendParam): void
 }
 

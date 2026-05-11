@@ -1,27 +1,26 @@
 declare namespace HomePage{
 
-
-    interface State{
-        active:string
-        spaceId:number // 空间的id
-        notesList:Info[]
-    }
+  type State = {
+    active: string
+    spaceId: number // 空间的id
+    notesList: Info[]
+  }
 
 }
 
 declare namespace HomePage.quest{
 
-    interface LoginReqest{
-        username:string 
-        password:string
-        vcode?:string
-    }
+  type LoginReqest = {
+    username: string
+    password: string
+    vcode?: string
+  }
 
-	interface LoginResponse extends User.Info{
-		token :string
-	}
+  type LoginResponse = {
+    token: string
+  } & User.Info
 
-    interface ResetPasswordByVCodeReqest extends System.Register.SendRegisterVcodeRquest{
-    }
+  type ResetPasswordByVCodeReqest = {
+  } & System.Register.SendRegisterVcodeRquest
 
 }

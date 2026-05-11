@@ -8,6 +8,7 @@ export type StoredUpload = {
   ext: string
   contentType: string
   publicPath: string
+  publicUrl: string
   objectKey: string
 }
 
@@ -32,7 +33,10 @@ export async function storeImageInR2(env: Env, file: File): Promise<StoredUpload
   const publicPath = `/uploads/${buildDatePath(new Date())}/${fileBaseName}`
   const objectKey = publicPath.replace(/^\//, '')
 
-  await env.UPLOADS.put(objectKey, await file.arrayBuffer(), {
+  if (!env.R2_PUBLIC_BASE_URL?.trim())
+    throw new Error('R2_PUBLIC_BASE_URL is required to return a public R2 upload URL')
+
+  const uploaded = await env.UPLOADS.put(objectKey, await file.arrayBuffer(), {
     httpMetadata: {
       contentType,
     },
@@ -40,13 +44,15 @@ export async function storeImageInR2(env: Env, file: File): Promise<StoredUpload
       fileName: file.name,
     },
   })
+  const publicUrl = getPublicUploadUrl(env, uploaded.key)
 
   return {
     fileName: file.name,
     ext,
     contentType,
-    publicPath,
-    objectKey,
+    publicPath: `/${uploaded.key}`,
+    publicUrl,
+    objectKey: uploaded.key,
   }
 }
 
@@ -60,28 +66,20 @@ export async function deleteUploadFromR2(env: Env, pathname: string) {
   await env.UPLOADS.delete(objectKey)
 }
 
-export function toPublicUploadUrl(requestUrl: string, pathname: string) {
+export function toPublicUploadUrl(env: Env, pathname: string) {
   if (!pathname.startsWith('/uploads/'))
     return pathname
 
-  return new URL(pathname, new URL(requestUrl).origin).toString()
+  return getPublicUploadUrl(env, pathname.replace(/^\//, '')) ?? pathname
 }
 
-export function withPublicUploadUrls<T>(requestUrl: string, value: T): T {
-  return mapNestedStrings(value, pathname => toPublicUploadUrl(requestUrl, pathname))
+export function withPublicUploadUrls<T>(env: Env, value: T): T {
+  return mapNestedStrings(value, pathname => toPublicUploadUrl(env, pathname))
 }
 
 export function toStoredUploadPath(pathname: string) {
-  if (pathname.startsWith('/uploads/'))
-    return pathname
-
-  try {
-    const url = new URL(pathname)
-    return url.pathname.startsWith('/uploads/') ? url.pathname : pathname
-  }
-  catch {
-    return pathname
-  }
+  // Keep full R2 public URLs in D1 so later reads do not need the Worker upload proxy.
+  return pathname
 }
 
 export function withStoredUploadPaths<T>(value: T): T {
@@ -113,4 +111,12 @@ function getUploadObjectKey(pathname: string) {
   }
 
   return pathname.replace(/^\//, '')
+}
+
+function getPublicUploadUrl(env: Env, objectKey: string) {
+  const baseUrl = env.R2_PUBLIC_BASE_URL?.trim()
+  if (!baseUrl)
+    throw new Error('R2_PUBLIC_BASE_URL is required to return a public R2 upload URL')
+
+  return new URL(objectKey, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`).toString()
 }

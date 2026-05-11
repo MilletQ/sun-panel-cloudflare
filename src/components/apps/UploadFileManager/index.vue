@@ -8,7 +8,7 @@ import { copyToClipboard, timeFormat } from '@/utils/cmn'
 import { t } from '@/locales'
 import { usePanelState } from '@/store'
 
-interface InfoModalState {
+type InfoModalState = {
   title: string
   show: boolean
   fileInfo: File.Info | null

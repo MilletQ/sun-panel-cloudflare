@@ -11,28 +11,7 @@ type ModuleConfigBody = {
   value?: Record<string, unknown>
 }
 
-const workerCpuInfo = {
-  coreCount: 0,
-  cpuNum: 0,
-  model: 'Cloudflare Workers',
-  usages: [] as number[],
-}
-
-const workerMemoryInfo = {
-  total: 0,
-  used: 0,
-  free: 0,
-  usedPercent: 0,
-}
-
-const workerMonitor = {
-  cpuInfo: workerCpuInfo,
-  diskInfo: [] as unknown[],
-  netIOCountersInfo: [] as unknown[],
-  memoryInfo: workerMemoryInfo,
-}
-
-export function registerSystemRoutes(app: Hono<{ Bindings: Env, Variables: Variables }>) {
+export function registerSystemRoutes(app: Hono<{ Bindings: Env; Variables: Variables }>) {
   app.post('/about', (c) => {
     return successData(c, {
       versionName: c.env.VERSION_NAME ?? '1.3.0',
@@ -130,7 +109,7 @@ export function registerSystemRoutes(app: Hono<{ Bindings: Env, Variables: Varia
       .all<Record<string, unknown>>()
 
     const results = rows.results.map((row) => {
-      const src = typeof row.src === 'string' ? toPublicUploadUrl(c.req.url, row.src) : row.src
+      const src = typeof row.src === 'string' ? toPublicUploadUrl(c.env, row.src) : row.src
       return {
         ...row,
         src,
@@ -185,10 +164,10 @@ export function registerSystemRoutes(app: Hono<{ Bindings: Env, Variables: Varia
       INSERT INTO file (src, user_id, file_name, method, ext)
       VALUES (?, ?, ?, ?, ?)
     `)
-      .bind(stored.publicPath, user.id, stored.fileName, 1, stored.ext)
+      .bind(stored.publicUrl, user.id, stored.fileName, 1, stored.ext)
       .run()
 
-    return successData(c, { imageUrl: toPublicUploadUrl(c.req.url, stored.publicPath) })
+    return successData(c, { imageUrl: stored.publicUrl })
   })
 
   app.post('/file/uploadFiles', loginRequired, async (c) => {
@@ -219,9 +198,9 @@ export function registerSystemRoutes(app: Hono<{ Bindings: Env, Variables: Varia
           INSERT INTO file (src, user_id, file_name, method, ext)
           VALUES (?, ?, ?, ?, ?)
         `)
-          .bind(stored.publicPath, user.id, stored.fileName, 1, stored.ext)
+          .bind(stored.publicUrl, user.id, stored.fileName, 1, stored.ext)
           .run()
-        succMap[value.name] = toPublicUploadUrl(c.req.url, stored.publicPath)
+        succMap[value.name] = stored.publicUrl
       }
       catch {
         errFiles.push(value.name)
@@ -229,21 +208,6 @@ export function registerSystemRoutes(app: Hono<{ Bindings: Env, Variables: Varia
     }
 
     return successData(c, { succMap, errFiles })
-  })
-
-  app.post('/system/monitor/getAll', publicMode, (c) => successData(c, workerMonitor))
-  app.post('/system/monitor/getCpuState', publicMode, (c) => successData(c, workerCpuInfo))
-  app.post('/system/monitor/getMemonyState', publicMode, (c) => successData(c, workerMemoryInfo))
-  app.post('/system/monitor/getDiskMountpoints', loginRequired, (c) => successData(c, []))
-  app.post('/system/monitor/getDiskStateByPath', publicMode, async (c) => {
-    const body = await readJson<{ path?: string }>(c)
-    return successData(c, {
-      mountpoint: normalizeString(body.path, '/'),
-      total: 0,
-      used: 0,
-      free: 0,
-      usedPercent: 0,
-    })
   })
 
   app.get('/openness/loginConfig', async (c) => {

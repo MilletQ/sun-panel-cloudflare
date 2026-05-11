@@ -7,7 +7,7 @@ import { deletes, edit, getList, saveSort } from '@/api/panel/itemIconGroup'
 import { RoundCardModal, SvgIcon } from '@/components/common'
 import { t } from '@/locales'
 
-interface EditModalArg {
+type EditModalArg = {
   show: boolean
   editStatus: number // 1.添加 2.编辑
   model: Panel.ItemIconGroup

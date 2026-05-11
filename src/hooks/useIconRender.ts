@@ -2,13 +2,13 @@ import { h } from 'vue'
 import { SvgIconOnline } from '@/components/common'
 
 export const useIconRender = () => {
-  interface IconConfig {
+  type IconConfig = {
     icon?: string
     color?: string
     fontSize?: number
   }
 
-  interface IconStyle {
+  type IconStyle = {
     color?: string
     fontSize?: string
   }

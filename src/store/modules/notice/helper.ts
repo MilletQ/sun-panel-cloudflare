@@ -2,7 +2,7 @@ import { ss } from '@/utils/storage'
 
 const LOCAL_NAME = 'noticeStore'
 
-export interface NoticeStore {
+export type NoticeStore = {
   global: number[]
   username: { [key: string]: number[] }
 }

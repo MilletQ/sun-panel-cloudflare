@@ -3,12 +3,12 @@ import { ss } from '@/utils/storage'
 
 const LOCAL_NAME = 'userStorage'
 
-export interface UserInfo extends User.Info {
+export type UserInfo = {
   // name: string
   // description: string
-}
+} & User.Info
 
-export interface UserState {
+export type UserState = {
   userInfo: UserInfo
 }
 

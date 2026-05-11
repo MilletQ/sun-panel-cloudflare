@@ -6,7 +6,7 @@ export type Theme = 'light' | 'dark' | 'auto'
 
 export type Language = 'zh-CN' | 'en-US'
 
-export interface AppState {
+export type AppState = {
   siderCollapsed: boolean
   theme: Theme
   language: Language

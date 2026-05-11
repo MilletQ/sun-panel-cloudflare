@@ -7,7 +7,7 @@
 - Hono + TypeScript：提供 HTTP API。
 - Cloudflare D1：持久化数据库。
 - Cloudflare Workers KV：缓存登录 token、系统配置、favicon 查询结果等短期数据。
-- Cloudflare R2：存储上传的图标、壁纸等文件。
+- Cloudflare R2：存储上传的图标、壁纸等文件；上传成功后会使用 Worker 变量 `R2_PUBLIC_BASE_URL` 和 R2 返回的 object key 生成完整公开地址，并把该地址写入 D1。
 
 ## 本地运行
 
@@ -67,6 +67,7 @@ copy .env.production.example .env.production
 - `DB`：Cloudflare D1 数据库。
 - `CACHE`：Cloudflare KV 命名空间，用于缓存 token、系统配置和短期接口数据。
 - `UPLOADS`：Cloudflare R2 bucket，用于保存上传的图标和壁纸。
+- `R2_PUBLIC_BASE_URL`：R2 公开访问基地址，用于把 R2 object key 拼成前端可直接访问的图片地址。
 
 创建资源后，需要把 `wrangler.toml` 中的占位 ID 替换成真实 ID。
 
@@ -94,6 +95,13 @@ wrangler r2 bucket create sun-panel-uploads
 wrangler r2 bucket create sun-panel-uploads-preview
 ```
 
+开启 R2 Public Development URL 或绑定自定义域后，将公开访问基地址写入 `wrangler.toml`：
+
+```toml
+[vars]
+R2_PUBLIC_BASE_URL = "https://你的-r2-public-development-url.r2.dev"
+```
+
 应用远程 D1 迁移并部署 Worker：
 
 ```sh
@@ -107,13 +115,13 @@ npm run deploy
 - 登录认证继续兼容当前前端使用的 `token` 请求头。
 - D1 保存面板用户、图标、配置等业务数据。
 - KV 用于缓存客户端 token、用户信息、系统配置和 favicon 查询结果。
-- R2 保存上传图片，Worker 通过 `/uploads/...` 路径读取并返回给前端。
+- R2 保存上传图片。上传成功后，Worker 根据 R2 返回的 object key 和 `R2_PUBLIC_BASE_URL` 拼出完整公开地址，写入 D1 并返回给前端；后续加载图片时前端直接访问 R2 公开地址，不再通过 Worker 代理图片请求。
 - Cloudflare Worker 无法读取宿主机 CPU、内存、磁盘等信息，因此系统监控接口返回稳定的空值结构，避免前端调用失败。
 
 ## 推荐部署流程
 
 1. 创建 D1 数据库、KV 命名空间和 R2 bucket。
-2. 修改 `wrangler.toml`，填入真实的 D1、KV、R2 配置。
+2. 修改 `wrangler.toml`，填入真实的 D1、KV、R2 配置，并设置 `R2_PUBLIC_BASE_URL`。
 3. 执行 D1 数据库迁移。
 4. 部署 Worker。
 5. 将前端 API 地址指向 Worker 路由。

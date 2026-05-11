@@ -1,10 +1,15 @@
 declare namespace DeskModule.SearchBox {
 
-    interface SearchEngine  {
-        iconSrc: string
-        title: string
-        url: string
-    }
+  type SearchEngine = {
+    iconSrc: string
+    title: string
+    url: string
+  }
+
+  type State = {
+    currentSearchEngine: SearchEngine
+    searchEngineList: SearchEngine[]
+    newWindowOpen: boolean
+  }
 
 }
-

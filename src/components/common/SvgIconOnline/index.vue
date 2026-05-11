@@ -2,7 +2,7 @@
 import { computed, useAttrs } from 'vue'
 import { Icon } from '@iconify/vue'
 
-interface Props {
+type Props = {
   icon?: string
 }
 

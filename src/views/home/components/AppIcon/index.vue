@@ -4,7 +4,7 @@ import { NEllipsis } from 'naive-ui'
 import { ItemIcon } from '@/components/common'
 import { PanelPanelConfigStyleEnum } from '@/enums'
 
-interface Prop {
+type Prop = {
   itemInfo?: Panel.ItemInfo
   size?: number // 默认70
   forceBackground?: string // 强制背景色

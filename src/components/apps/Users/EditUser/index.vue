@@ -6,7 +6,7 @@ import { edit as userManageEdit } from '@/api/panel/users'
 import { RoundCardModal } from '@/components/common'
 import { t } from '@/locales'
 
-interface Props {
+type Props = {
   visible: boolean
   userId?: number
   userInfo?: User.Info
@@ -16,7 +16,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emit>()
 const message = useMessage()
 
-interface Emit {
+type Emit = {
   (e: 'update:visible', visible: boolean): void
   (e: 'done', id: number): void// 创建完成
 }

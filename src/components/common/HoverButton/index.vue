@@ -4,12 +4,12 @@ import type { PopoverPlacement } from 'naive-ui'
 import { NTooltip } from 'naive-ui'
 import Button from './Button.vue'
 
-interface Props {
+type Props = {
   tooltip?: string
   placement?: PopoverPlacement
 }
 
-interface Emit {
+type Emit = {
   (e: 'click'): void
 }
 

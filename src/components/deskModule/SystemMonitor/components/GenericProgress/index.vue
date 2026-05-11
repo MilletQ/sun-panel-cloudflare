@@ -2,7 +2,7 @@
 import { NProgress } from 'naive-ui'
 import { PanelPanelConfigStyleEnum } from '@/enums'
 
-interface Prop {
+type Prop = {
   textColor: string
   progressColor: string
   progressRailColor: string

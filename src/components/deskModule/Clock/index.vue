@@ -6,7 +6,7 @@ const props = defineProps<{
   hideSecond?: boolean
 }>()
 
-interface CurrentDate {
+type CurrentDate = {
   time: string
   date: string
   week: string

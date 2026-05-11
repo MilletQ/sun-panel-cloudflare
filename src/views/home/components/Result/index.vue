@@ -8,7 +8,7 @@ import { NAlert } from 'naive-ui'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { t } from '@/locales'
 
-interface Props {
+type Props = {
   error?: boolean
   text?: string
   loading?: boolean

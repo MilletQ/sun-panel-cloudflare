@@ -8,7 +8,7 @@ import { ref } from 'vue'
 import { ItemCard, SvgIcon } from '@/components/common'
 import type { PanelPanelConfigStyleEnum } from '@/enums'
 
-interface Prop {
+type Prop = {
 //   size?: number // 默认70
   extendParam?: any
   iconTextColor?: string

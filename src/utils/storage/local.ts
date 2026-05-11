@@ -1,6 +1,6 @@
 import { deCrypto, enCrypto } from '../crypto'
 
-interface StorageData<T = any> {
+type StorageData<T = any> = {
   data: T
   expire: number | null
 }

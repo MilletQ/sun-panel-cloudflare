@@ -6,7 +6,7 @@ import type { PanelPanelConfigStyleEnum } from '@/enums'
 import { bytesToSize } from '@/utils/cmn'
 import { getDiskStateByPath } from '@/api/system/systemMonitor'
 
-interface Prop {
+type Prop = {
   cardTypeStyle: PanelPanelConfigStyleEnum
   refreshInterval: number
   textColor: string

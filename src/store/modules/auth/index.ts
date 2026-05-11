@@ -2,11 +2,11 @@ import { defineStore } from 'pinia'
 import { getStorage, removeToken as hRemoveToken, setStorage } from './helper'
 import { VisitMode } from '@/enums/auth'
 
-// interface SessionResponse {
+// type SessionResponse = {
 //   auth: boolean
 // }
 
-export interface AuthState {
+export type AuthState = {
   token: string | null
   userInfo: User.Info | null
   // session: SessionResponse | null

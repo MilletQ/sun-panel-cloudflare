@@ -9,7 +9,7 @@ import Disk from './Disk.vue'
 import { SvgIcon } from '@/components/common'
 import { PanelPanelConfigStyleEnum } from '@/enums'
 
-interface Prop {
+type Prop = {
   extendParam?: any
   iconTextColor?: string
   iconTextIconHideTitle: boolean

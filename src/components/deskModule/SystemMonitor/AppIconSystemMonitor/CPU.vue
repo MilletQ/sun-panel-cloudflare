@@ -5,7 +5,7 @@ import { correctionNumber, correctionNumberByCardStyle } from './common'
 import { getCpuState } from '@/api/system/systemMonitor'
 import type { PanelPanelConfigStyleEnum } from '@/enums'
 
-interface Prop {
+type Prop = {
   cardTypeStyle: PanelPanelConfigStyleEnum
   refreshInterval: number
   textColor: string

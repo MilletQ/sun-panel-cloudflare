@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store'
 import { AppLoader, RoundCardModal, SvgIcon } from '@/components/common'
 import { t } from '@/locales'
 
-interface App {
+type App = {
   name: string
   componentName: string
   icon: string

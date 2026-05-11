@@ -3,7 +3,7 @@ import { NAvatar, NImage } from 'naive-ui'
 import { computed, ref, withDefaults } from 'vue'
 import { SvgIconOnline } from '@/components/common'
 
-interface Prop {
+type Prop = {
   itemIcon?: Panel.ItemIcon | null
   size?: number // 默认70
   forceBackground?: string // 强制背景色

@@ -6,7 +6,7 @@ import { useAppStore, useAuthStore } from '@/store'
 import { router } from '@/router'
 
 let loginMessageShow = false
-export interface HttpOption {
+export type HttpOption = {
   url: string
   data?: any
   method?: string
@@ -17,7 +17,7 @@ export interface HttpOption {
   afterRequest?: () => void
 }
 
-export interface Response<T = any> {
+export type Response<T = any> = {
   data: T
   // message: string | null
   // status: string

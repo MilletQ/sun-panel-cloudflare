@@ -1,5 +1,5 @@
 <script setup lang='ts'>
-interface Emit {
+type Emit = {
   (e: 'click'): void
 }
 

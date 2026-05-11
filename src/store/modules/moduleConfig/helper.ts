@@ -3,12 +3,12 @@ import { ss } from '@/utils/storage'
 
 const LOCAL_NAME = 'moduleConfig'
 
-export interface Config {
+export type Config = {
   name: string
   config: any
 }
 
-export interface ModuleConfigState {
+export type ModuleConfigState = {
   [key: string]: any
 }
 

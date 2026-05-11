@@ -6,7 +6,7 @@ import { getMemonyState } from '@/api/system/systemMonitor'
 import type { PanelPanelConfigStyleEnum } from '@/enums'
 import { bytesToSize } from '@/utils/cmn'
 
-interface Prop {
+type Prop = {
   cardTypeStyle: PanelPanelConfigStyleEnum
   refreshInterval: number
   textColor: string

@@ -7,7 +7,7 @@ import { edit, getSiteFavicon } from '@/api/panel/itemIcon'
 import { getList as getGroupList } from '@/api/panel/itemIconGroup'
 import { t } from '@/locales'
 
-interface Props {
+type Props = {
   visible: boolean
   itemInfo: Panel.Info | null
   itemGroupId?: number
@@ -32,7 +32,7 @@ const restoreDefault: Panel.Info = {
   openMethod: 2,
 }
 
-interface Emit {
+type Emit = {
   (e: 'update:visible', visible: boolean): void
   (e: 'done', item: Panel.Info): void// 创建完成
 }

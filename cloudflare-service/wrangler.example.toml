@@ -4,6 +4,7 @@ compatibility_date = "2026-05-09"
 
 [vars]
 CORS_ORIGIN = "*"
+R2_PUBLIC_BASE_URL = "https://your-r2-public-domain.example.com"
 VERSION_NAME = "1.3.0"
 VERSION_CODE = "10"
 

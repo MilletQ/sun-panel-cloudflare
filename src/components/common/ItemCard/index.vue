@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { PanelPanelConfigStyleEnum } from '@/enums'
 
-interface Prop {
+type Prop = {
   cardTypeStyle: PanelPanelConfigStyleEnum
   class?: string
   backgroundColor?: string

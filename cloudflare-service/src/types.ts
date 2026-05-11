@@ -3,6 +3,7 @@ export type Env = {
   CACHE: KVNamespace
   UPLOADS: R2Bucket
   CORS_ORIGIN?: string
+  R2_PUBLIC_BASE_URL?: string
   VERSION_NAME?: string
   VERSION_CODE?: string
 }

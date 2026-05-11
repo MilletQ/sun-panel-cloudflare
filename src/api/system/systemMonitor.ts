@@ -1,32 +1,30 @@
-import { post } from '@/utils/request'
+import type { Response } from '@/utils/request'
 
 export function getAll<T>() {
-  return post<T>({
-    url: '/system/monitor/getAll',
-  })
+  return removed<T>()
 }
 
 export function getCpuState<T>() {
-  return post<T>({
-    url: '/system/monitor/getCpuState',
-  })
+  return removed<T>()
 }
 
 export function getDiskStateByPath<T>(path: string) {
-  return post<T>({
-    url: '/system/monitor/getDiskStateByPath',
-    data: { path },
-  })
+  void path
+  return removed<T>()
 }
 
 export function getMemonyState<T>() {
-  return post<T>({
-    url: '/system/monitor/getMemonyState',
-  })
+  return removed<T>()
 }
 
 export function getDiskMountpoints<T>() {
-  return post<T>({
-    url: '/system/monitor/getDiskMountpoints',
+  return removed<T>()
+}
+
+function removed<T>(): Promise<Response<T>> {
+  return Promise.resolve({
+    code: -1,
+    msg: 'System monitor has been removed',
+    data: null as T,
   })
 }

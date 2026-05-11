@@ -1,10 +1,10 @@
-interface CompressImageFileOptions {
+type CompressImageFileOptions = {
   maxWidth: number
   maxHeight: number
   quality?: number
 }
 
-interface LoadedImage {
+type LoadedImage = {
   element: HTMLImageElement
   width: number
   height: number

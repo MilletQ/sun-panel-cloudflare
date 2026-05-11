@@ -11,9 +11,9 @@ import { addMultiple as addMultipleIcons, getListByGroupId } from '@/api/panel/i
 
 import { t } from '@/locales'
 
-interface ItemGroup extends Panel.ItemIconGroup {
+type ItemGroup = {
   items?: Panel.ItemInfo[]
-}
+} & Panel.ItemIconGroup
 
 const ms = useMessage()
 
@@ -140,7 +140,7 @@ async function exportIcons(): Promise<IconGroup[]> {
 }
 
 onMounted(() => {
-  interface Version {
+  type Version = {
     versionName: string
     versionCode: number
   }

@@ -8,7 +8,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<Emit>()
-interface Emit {
+type Emit = {
   (e: 'update:show', show: boolean): void
 //   (e: 'done', item: Panel.Info): void// 创建完成
 }

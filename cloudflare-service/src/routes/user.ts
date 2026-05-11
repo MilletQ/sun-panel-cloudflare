@@ -18,13 +18,13 @@ type UpdatePasswordBody = {
   newPassword?: string
 }
 
-export function registerUserRoutes(app: Hono<{ Bindings: Env, Variables: Variables }>) {
+export function registerUserRoutes(app: Hono<{ Bindings: Env; Variables: Variables }>) {
   app.post('/user/getInfo', loginRequired, (c) => {
     const user = c.get('user')
     return successData(c, {
       userId: user.id,
       id: user.id,
-      headImage: toPublicUploadUrl(c.req.url, user.headImage),
+      headImage: toPublicUploadUrl(c.env, user.headImage),
       name: user.name,
       role: user.role,
     })
@@ -36,7 +36,7 @@ export function registerUserRoutes(app: Hono<{ Bindings: Env, Variables: Variabl
       user: {
         id: user.id,
         userId: user.id,
-        headImage: toPublicUploadUrl(c.req.url, user.headImage),
+        headImage: toPublicUploadUrl(c.env, user.headImage),
         name: user.name,
         role: user.role,
         username: user.username,

@@ -19,7 +19,7 @@ export class ConfigVersionLowError extends Error {
   }
 }
 
-export interface JsonStructure {
+export type JsonStructure = {
   version: number
   appName: 'Sun-Panel-Config'
   exportTime: string
@@ -30,7 +30,7 @@ export interface JsonStructure {
 }
 
 // 图标
-export interface Icon {
+export type Icon = {
   title: string
   sort: number
   icon: Panel.ItemIcon | null
@@ -41,13 +41,13 @@ export interface Icon {
 }
 
 // 图标组
-export interface IconGroup {
+export type IconGroup = {
   title: string
   sort: number
   children: Icon[]
 }
 
-interface ExportJsonResult {
+type ExportJsonResult = {
   addIconsData(datas: IconGroup[]): ExportJsonResult
   exportFile(): void
   string(): string
@@ -96,7 +96,7 @@ export function exportJson(appVersion?: string): ExportJsonResult {
   }
 }
 
-export interface ImportJsonResult {
+export type ImportJsonResult = {
   isPassCheckMd5: () => boolean
   isPassCheckConfigVersionOld: () => boolean // 配置（数据）的版本是否过旧
   isPassCheckConfigVersionNew: () => boolean // 配置（数据）的版本是否过新

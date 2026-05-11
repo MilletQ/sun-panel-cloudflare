@@ -3,28 +3,31 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { NBackTop, NButton, NButtonGroup, NDropdown, NModal, NSkeleton, NSpin, useDialog, useMessage } from 'naive-ui'
 import { nextTick, onMounted, ref } from 'vue'
 import { AppIcon, AppStarter, EditItem } from './components'
-import { Clock, SearchBox, SystemMonitor } from '@/components/deskModule'
+import { Clock, SearchBox } from '@/components/deskModule'
 import { SvgIcon } from '@/components/common'
-import { deletes, getListByGroupId, saveSort } from '@/api/panel/itemIcon'
-import { getList as getGroupList } from '@/api/panel/itemIconGroup'
+import { deletes, saveSort } from '@/api/panel/itemIcon'
+import { type HomeData, type HomeItemGroup, getData as getHomeData } from '@/api/panel/home'
 
-import { setTitle, updateLocalUserInfo } from '@/utils/cmn'
+import { setTitle } from '@/utils/cmn'
 import { useAuthStore, usePanelState } from '@/store'
+import { useUserStore } from '@/store/modules/user'
+import { defaultStatePanelConfig } from '@/store/modules/panel/helper'
 import { PanelPanelConfigStyleEnum, PanelStateNetworkModeEnum } from '@/enums'
 import { VisitMode } from '@/enums/auth'
 import { router } from '@/router'
 import { t } from '@/locales'
 
-interface ItemGroup extends Panel.ItemIconGroup {
+type ItemGroup = {
   sortStatus?: boolean
   hoverStatus: boolean
   items?: Panel.ItemInfo[]
-}
+} & Panel.ItemIconGroup
 
 const ms = useMessage()
 const dialog = useDialog()
 const panelState = usePanelState()
 const authStore = useAuthStore()
+const userStore = useUserStore()
 
 const scrollContainerRef = ref<HTMLElement | undefined>(undefined)
 
@@ -44,6 +47,8 @@ const currentRightSelectItem = ref<Panel.ItemInfo | null>(null)
 const currentAddItenIconGroupId = ref<number | undefined>()
 
 const settingModalShow = ref(false)
+const homeLoaded = ref(false)
+const searchBoxState = ref<DeskModule.SearchBox.State | null>(null)
 
 const items = ref<ItemGroup[]>([])
 const filterItems = ref<ItemGroup[]>([])
@@ -84,31 +89,33 @@ function handleItemClick(itemGroupIndex: number, item: Panel.ItemInfo) {
   openPage(item.openMethod, jumpUrl, item.title)
 }
 
-function handWindowIframeIdLoad(payload: Event) {
+function handWindowIframeIdLoad(_payload: Event) {
   windowIframeIsLoad.value = false
 }
 
-function getList() {
-  // 获取组数据
-  getGroupList<Common.ListResponse<ItemGroup[]>>().then(({ code, data, msg }) => {
-    if (code === 0)
-      items.value = data.list
-    for (let i = 0; i < data.list.length; i++) {
-      const element = data.list[i]
-      if (element.id)
-        updateItemIconGroupByNet(i, element.id)
-    }
-    filterItems.value = items.value
-    // console.log(items)
-  })
-}
+async function getList() {
+  const { code, data } = await getHomeData<HomeData>()
+  if (code !== 0)
+    return
 
-// 从后端获取组下面的图标
-function updateItemIconGroupByNet(itemIconGroupIndex: number, itemIconGroupId: number) {
-  getListByGroupId<Common.ListResponse<Panel.ItemInfo[]>>(itemIconGroupId).then((res) => {
-    if (res.code === 0)
-      items.value[itemIconGroupIndex].items = res.data.list
-  })
+  authStore.setUserInfo(data.user)
+  authStore.setVisitMode(data.visitMode)
+  userStore.updateUserInfo({ headImage: data.user.headImage, name: data.user.name })
+  panelState.panelConfig = { ...defaultStatePanelConfig(), ...(data.panel || {}) }
+  panelState.recordState()
+  searchBoxState.value = data.searchBox
+
+  items.value = data.itemIconGroups.map((group: HomeItemGroup) => ({
+    ...group,
+    hoverStatus: false,
+    items: group.items || [],
+  }))
+  filterItems.value = items.value
+
+  if (panelState.panelConfig.logoText)
+    setTitle(panelState.panelConfig.logoText)
+
+  homeLoaded.value = true
 }
 
 function handleRightMenuSelect(key: string | number) {
@@ -130,7 +137,6 @@ function handleRightMenuSelect(key: string | number) {
         openPage(currentRightSelectItem.value?.openMethod, currentRightSelectItem.value.lanUrl, currentRightSelectItem.value?.title)
       break
     case 'edit':
-      // 这里有个奇怪的问题，如果不使用{...}的方式 父组件的值会同步修改 标记一下
       handleEditItem({ ...currentRightSelectItem.value } as Panel.ItemInfo)
       break
     case 'delete':
@@ -177,7 +183,7 @@ function onClickoutside() {
   dropdownShow.value = false
 }
 
-function handleEditSuccess(item: Panel.ItemInfo) {
+function handleEditSuccess(_item: Panel.ItemInfo) {
   getList()
 }
 
@@ -190,7 +196,6 @@ function handleChangeNetwork(mode: PanelStateNetworkModeEnum) {
     ms.success(t('panelHome.changeToWanModelSuccess'))
 }
 
-// 结束拖拽
 // function handleEndDrag(event: any, itemIconGroup: Panel.ItemIconGroup) {
 //   // console.log(event)
 //   // console.log(items.value)
@@ -256,19 +261,9 @@ function getDropdownMenuOptions() {
 }
 
 onMounted(() => {
-  // 更新用户信息
-  updateLocalUserInfo()
   getList()
-
-  // 更新同步云端配置
-  panelState.updatePanelConfigByCloud()
-
-  // 设置标题
-  if (panelState.panelConfig.logoText)
-    setTitle(panelState.panelConfig.logoText)
 })
 
-// 前端搜索过滤
 function itemFrontEndSearch(keyword?: string) {
   keyword = keyword?.trim()
   if (keyword !== '' && panelState.panelConfig.searchBoxSearchIcon) {
@@ -300,12 +295,8 @@ function handleSetSortStatus(groupIndex: number, sortStatus: boolean) {
   if (items.value[groupIndex])
     items.value[groupIndex].sortStatus = sortStatus
 
-  // 并未保存排序重新更新数据
-  if (!sortStatus) {
-    // 单独更新组
-    if (items.value[groupIndex] && items.value[groupIndex].id)
-      updateItemIconGroupByNet(groupIndex, items.value[groupIndex].id as number)
-  }
+  if (!sortStatus)
+    getList()
 }
 
 function handleEditItem(item: Panel.ItemInfo) {
@@ -342,7 +333,6 @@ function handleAddItem(itemIconGroupId?: number) {
           maxWidth: (panelState.panelConfig.maxWidth ?? '1200') + panelState.panelConfig.maxWidthUnit,
         }"
       >
-        <!-- 头 -->
         <div class="mx-[auto] w-[80%]">
           <div class="flex mx-[auto] items-center justify-center text-white">
             <div class="logo">
@@ -357,27 +347,12 @@ function handleAddItem(itemIconGroupId?: number) {
               <Clock :hide-second="!panelState.panelConfig.clockShowSecond" />
             </div>
           </div>
-          <div v-if="panelState.panelConfig.searchBoxShow" class="flex mt-[20px] mx-auto sm:w-full lg:w-[80%]">
-            <SearchBox @itemSearch="itemFrontEndSearch" />
+          <div v-if="homeLoaded && panelState.panelConfig.searchBoxShow" class="flex mt-[20px] mx-auto sm:w-full lg:w-[80%]">
+            <SearchBox :initial-state="searchBoxState" @item-search="itemFrontEndSearch" />
           </div>
         </div>
 
-        <!-- 应用盒子 -->
         <div :style="{ marginLeft: `${panelState.panelConfig.marginX}px`, marginRight: `${panelState.panelConfig.marginX}px` }">
-          <!-- 系统监控状态 -->
-          <div
-            v-if="panelState.panelConfig.systemMonitorShow
-              && ((panelState.panelConfig.systemMonitorPublicVisitModeShow && authStore.visitMode === VisitMode.VISIT_MODE_PUBLIC)
-                || authStore.visitMode === VisitMode.VISIT_MODE_LOGIN)"
-            class="flex mx-auto"
-          >
-            <SystemMonitor
-              :allow-edit="authStore.visitMode === VisitMode.VISIT_MODE_LOGIN"
-              :show-title="panelState.panelConfig.systemMonitorShowTitle"
-            />
-          </div>
-
-          <!-- 组纵向排列 -->
           <div
             v-for="(itemGroup, itemGroupIndex) in filterItems" :key="itemGroupIndex"
             class="item-list mt-[50px]"
@@ -385,7 +360,6 @@ function handleAddItem(itemIconGroupId?: number) {
             @mouseenter="handleSetHoverStatus(itemGroupIndex, true)"
             @mouseleave="handleSetHoverStatus(itemGroupIndex, false)"
           >
-            <!-- 分组标题 -->
             <div class="text-white text-xl font-extrabold mb-[20px] ml-[10px] flex items-center">
               <span class="group-title text-shadow">
                 {{ itemGroup.title }}
@@ -404,7 +378,6 @@ function handleAddItem(itemIconGroupId?: number) {
               </div>
             </div>
 
-            <!-- 详情图标 -->
             <div v-if="panelState.panelConfig.iconStyle === PanelPanelConfigStyleEnum.info">
               <div v-if="itemGroup.items">
                 <VueDraggable
@@ -440,7 +413,6 @@ function handleAddItem(itemIconGroupId?: number) {
               </div>
             </div>
 
-            <!-- APP图标宫型盒子 -->
             <div v-if="panelState.panelConfig.iconStyle === PanelPanelConfigStyleEnum.icon">
               <div v-if="itemGroup.items">
                 <VueDraggable
@@ -477,7 +449,6 @@ function handleAddItem(itemIconGroupId?: number) {
               </div>
             </div>
 
-            <!-- 编辑栏 -->
             <div v-if="itemGroup.sortStatus" class="flex mt-[10px]">
               <div>
                 <NButton color="#2a2a2a6b" @click="handleSaveSort(itemGroup)">
@@ -496,16 +467,13 @@ function handleAddItem(itemIconGroupId?: number) {
       </div>
     </div>
 
-    <!-- 右键菜单 -->
     <NDropdown
       placement="bottom-start" trigger="manual" :x="dropdownMenuX" :y="dropdownMenuY"
       :options="getDropdownMenuOptions()" :show="dropdownShow" :on-clickoutside="onClickoutside" @select="handleRightMenuSelect"
     />
 
-    <!-- 悬浮按钮 -->
     <div class="fixed-element shadow-[0_0_10px_2px_rgba(0,0,0,0.2)]">
       <NButtonGroup vertical>
-        <!-- 网络模式切换按钮组 -->
         <NButton
           v-if="panelState.networkMode === PanelStateNetworkModeEnum.lan && panelState.panelConfig.netModeChangeButtonShow" color="#2a2a2a6b"
           :title="t('panelHome.changeToWanModel')" @click="handleChangeNetwork(PanelStateNetworkModeEnum.wan)"
@@ -558,7 +526,6 @@ function handleAddItem(itemIconGroupId?: number) {
 
     <EditItem v-model:visible="editItemInfoShow" :item-info="editItemInfoData" :item-group-id="currentAddItenIconGroupId" @done="handleEditSuccess" />
 
-    <!-- 弹窗 -->
     <NModal
       v-model:show="windowShow" :mask-closable="false" preset="card"
       style="max-width: 1000px;height: 600px;border-radius: 1rem;" :bordered="true" size="small" role="dialog"
@@ -629,11 +596,8 @@ html {
 
 .fixed-element {
   position: fixed;
-  /* 将元素固定在屏幕上 */
   right: 10px;
-  /* 距离屏幕顶部的距离 */
   bottom: 50px;
-  /* 距离屏幕左侧的距离 */
 }
 
 .icon-info-box {

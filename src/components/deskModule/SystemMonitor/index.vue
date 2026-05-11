@@ -11,11 +11,11 @@ import { PanelPanelConfigStyleEnum } from '@/enums'
 import { SvgIcon } from '@/components/common'
 import { t } from '@/locales'
 
-interface MonitorGroup extends Panel.ItemIconGroup {
+type MonitorGroup = {
   sortStatus?: boolean
   hoverStatus: boolean
   items?: Panel.ItemInfo[]
-}
+} & Panel.ItemIconGroup
 
 const props = defineProps<{
   allowEdit?: boolean

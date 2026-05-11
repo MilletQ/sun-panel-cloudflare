@@ -10,7 +10,7 @@ import { getDiskMountpoints } from '@/api/system/systemMonitor'
 import { defautSwatchesBackground } from '@/utils/defaultData'
 import { t } from '@/locales'
 
-interface Emit {
+type Emit = {
   (e: 'update:diskExtendParam', visible: DiskExtendParam): void
 }
 

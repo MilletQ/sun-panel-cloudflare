@@ -9,7 +9,7 @@ import GenericProgressStyleEditor from './GenericProgressStyleEditor/index.vue'
 import DiskEditor from './DiskEditor/index.vue'
 import { t } from '@/locales'
 
-interface Props {
+type Props = {
   visible: boolean
   monitorData: MonitorData | null
   index: number | null
@@ -48,7 +48,7 @@ const currentDiskExtendParam = ref<DiskExtendParam>({ ...defaultDiskExtendParam 
 const ms = useMessage()
 const submitLoading = ref(false)
 
-interface Emit {
+type Emit = {
   (e: 'update:visible', visible: boolean): void
   (e: 'done', item: boolean): void
 }

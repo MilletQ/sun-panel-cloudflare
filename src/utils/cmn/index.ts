@@ -103,7 +103,7 @@ export function getTitle(titile: string) {
 
 //
 export async function updateLocalUserInfo() {
-  interface Req {
+  type Req = {
     user: User.Info
     visitMode: VisitMode
   }

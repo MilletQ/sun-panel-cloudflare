@@ -1,6 +1,6 @@
 import type { Hono } from 'hono'
 import type { Env, ItemIcon, ItemIconGroupRow, ItemIconRow, SortItem, UserRow, Variables } from '../types'
-import { error, errorByCode, errorDatabase, errorParam, success, successData, successListData } from '../lib/api-response'
+import { error, errorByCode, errorParam, success, successData, successListData } from '../lib/api-response'
 import { cacheKey, deleteCache } from '../lib/cache'
 import { passwordEncryption } from '../lib/crypto'
 import { firstUserById, firstUserByUsername, getSystemSettingJson, mapItemIcon, mapItemIconGroup, mapUser, placeholders, sanitizeUser, setSystemSetting } from '../lib/db'
@@ -79,7 +79,8 @@ async function discoverFavicon(env: Env, rawUrl: string) {
   if (cached)
     return cached
 
-  const site = new URL(rawUrl.startsWith('http://') || rawUrl.startsWith('https://') ? rawUrl : `https://${rawUrl}`)
+  const hasProtocol = rawUrl.startsWith('http://') || rawUrl.startsWith('https://')
+  const site = new URL(hasProtocol ? rawUrl : `https://${rawUrl}`)
   let iconUrl = new URL('/favicon.ico', site).toString()
 
   try {
@@ -102,16 +103,72 @@ async function discoverFavicon(env: Env, rawUrl: string) {
   return iconUrl
 }
 
-function mapPublicItemIcon(requestUrl: string, row: ItemIconRow) {
-  return withPublicUploadUrls(requestUrl, mapItemIcon(row))
+function mapPublicItemIcon(env: Env, row: ItemIconRow) {
+  return withPublicUploadUrls(env, mapItemIcon(row))
 }
 
-export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variables }>) {
+export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variables }>) {
+  app.post('/panel/home/getData', publicMode, async (c) => {
+    const user = c.get('user')
+    const [configRow, searchBoxRow] = await Promise.all([
+      c.env.DB.prepare('SELECT panel_json, search_engine_json FROM user_config WHERE user_id = ?')
+        .bind(user.id)
+        .first<{ panel_json: string; search_engine_json: string }>(),
+      c.env.DB.prepare('SELECT value_json FROM module_config WHERE user_id = ? AND name = ? AND deleted_at IS NULL')
+        .bind(user.id, 'deskModuleSearchBox')
+        .first<{ value_json: string }>(),
+    ])
+
+    const groups = await getOrCreateGroups(c.env, user.id)
+    const iconRows = await c.env.DB.prepare(`
+      SELECT * FROM item_icon
+      WHERE user_id = ? AND deleted_at IS NULL
+      ORDER BY item_icon_group_id, sort, created_at
+    `)
+      .bind(user.id)
+      .all<ItemIconRow>()
+
+    const itemsByGroupId = new Map<number, ItemIcon[]>()
+    for (const row of iconRows.results) {
+      const item = mapPublicItemIcon(c.env, row)
+      const list = itemsByGroupId.get(item.itemIconGroupId) ?? []
+      list.push(item)
+      itemsByGroupId.set(item.itemIconGroupId, list)
+    }
+
+    let panel: Record<string, unknown> | null = null
+    let searchEngine: Record<string, unknown> | null = null
+    let searchBox: Record<string, unknown> | null = null
+
+    try {
+      panel = withPublicUploadUrls(c.env, JSON.parse(configRow?.panel_json || 'null'))
+      searchEngine = withPublicUploadUrls(c.env, JSON.parse(configRow?.search_engine_json || 'null'))
+      searchBox = withPublicUploadUrls(c.env, JSON.parse(searchBoxRow?.value_json || 'null'))
+    }
+    catch {
+      panel = null
+      searchEngine = null
+      searchBox = null
+    }
+
+    return successData(c, {
+      user: withPublicUploadUrls(c.env, sanitizeUser(user)),
+      visitMode: c.get('visitMode'),
+      panel,
+      searchEngine,
+      searchBox,
+      itemIconGroups: groups.map(group => ({
+        ...group,
+        items: itemsByGroupId.get(group.id ?? 0) ?? [],
+      })),
+    })
+  })
+
   app.post('/panel/userConfig/get', publicMode, async (c) => {
     const user = c.get('user')
     const row = await c.env.DB.prepare('SELECT * FROM user_config WHERE user_id = ?')
       .bind(user.id)
-      .first<{ panel_json: string, search_engine_json: string, user_id: number }>()
+      .first<{ panel_json: string; search_engine_json: string; user_id: number }>()
 
     if (!row)
       return errorByCode(c, -1, 'No data record found')
@@ -119,8 +176,8 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
     let panel: Record<string, unknown> | null = null
     let searchEngine: Record<string, unknown> | null = null
     try {
-      panel = withPublicUploadUrls(c.req.url, JSON.parse(row.panel_json || 'null'))
-      searchEngine = withPublicUploadUrls(c.req.url, JSON.parse(row.search_engine_json || 'null'))
+      panel = withPublicUploadUrls(c.env, JSON.parse(row.panel_json || 'null'))
+      searchEngine = withPublicUploadUrls(c.env, JSON.parse(row.search_engine_json || 'null'))
     }
     catch {
       panel = null
@@ -257,7 +314,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
       .bind(groupId, user.id)
       .all<ItemIconRow>()
 
-    return successListData(c, rows.results.map(row => mapPublicItemIcon(c.req.url, row)), 0)
+    return successListData(c, rows.results.map(row => mapPublicItemIcon(c.env, row)), 0)
   })
 
   app.post('/panel/itemIcon/edit', loginRequired, async (c) => {
@@ -316,7 +373,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
       .bind(savedId, user.id)
       .first<ItemIconRow>()
 
-    return successData(c, row ? mapPublicItemIcon(c.req.url, row) : { id: savedId })
+    return successData(c, row ? mapPublicItemIcon(c.env, row) : { id: savedId })
   })
 
   app.post('/panel/itemIcon/addMultiple', loginRequired, async (c) => {
@@ -353,7 +410,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
         .bind(Number(inserted.meta.last_row_id))
         .first<ItemIconRow>()
       if (row)
-        saved.push(mapPublicItemIcon(c.req.url, row))
+        saved.push(mapPublicItemIcon(c.env, row))
     }
 
     return successData(c, saved)
@@ -374,7 +431,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
   })
 
   app.post('/panel/itemIcon/saveSort', loginRequired, async (c) => {
-    const body = await readJson<{ sortItems?: SortItem[], itemIconGroupId?: number }>(c)
+    const body = await readJson<{ sortItems?: SortItem[]; itemIconGroupId?: number }>(c)
     const user = c.get('user')
     const groupId = normalizeNumber(body.itemIconGroupId)
     const sortItems = Array.isArray(body.sortItems) ? body.sortItems : []
@@ -475,7 +532,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
       await deleteCache(c.env, cacheKey.userToken(storedUser.token))
 
     const updated = await firstUserById(c.env, id)
-    return successData(c, updated ? withPublicUploadUrls(c.req.url, sanitizeUser(updated)) : { id })
+    return successData(c, updated ? withPublicUploadUrls(c.env, sanitizeUser(updated)) : { id })
   })
 
   app.post('/panel/users/getList', loginRequired, adminRequired, async (c) => {
@@ -501,7 +558,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
       .bind(...countParams)
       .first<{ count: number }>()
 
-    return successListData(c, rows.results.map(row => withPublicUploadUrls(c.req.url, sanitizeUser(mapUser(row)))), countRow?.count ?? 0)
+    return successListData(c, rows.results.map(row => withPublicUploadUrls(c.env, sanitizeUser(mapUser(row)))), countRow?.count ?? 0)
   })
 
   app.post('/panel/users/deletes', loginRequired, adminRequired, async (c) => {
@@ -539,7 +596,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env, Variables: Variab
     if (!user)
       return errorByCode(c, -1, 'No data record found')
 
-    return successData(c, withPublicUploadUrls(c.req.url, sanitizeUser(user)))
+    return successData(c, withPublicUploadUrls(c.env, sanitizeUser(user)))
   })
 
   app.post('/panel/users/setPublicVisitUser', loginRequired, adminRequired, async (c) => {

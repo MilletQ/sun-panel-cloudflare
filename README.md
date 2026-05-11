@@ -29,7 +29,7 @@
 - 后端：Hono + TypeScript，运行在 Cloudflare Workers。
 - 数据库：Cloudflare D1。
 - 缓存：Cloudflare Workers KV。
-- 文件存储：Cloudflare R2，用于上传图标、壁纸等图片。
+- 文件存储：Cloudflare R2，用于上传图标、壁纸等图片；上传成功后会使用 Worker 变量 `R2_PUBLIC_BASE_URL` 和 R2 返回的 object key 生成完整公开地址，并把该地址写入 D1。
 
 原 Go 后端目录已不再作为当前项目的一部分维护，Cloudflare 版只使用 `cloudflare-service/`。
 
@@ -42,6 +42,11 @@
 - 支持自定义面板样式、背景、搜索引擎等配置。
 - 支持公开访问用户模式。
 - Cloudflare Worker 后端保留原前端 `token` 请求头认证方式。
+
+## 开发约定
+
+- TypeScript 类型定义默认使用 `type`，项目已关闭 `@typescript-eslint/consistent-type-definitions` 的强制 `interface` 要求。
+- 只有需要 TypeScript 声明合并的全局类型仍保留 `interface`，例如 `ImportMetaEnv` 和 `Window`。
 
 ## 目录结构
 
@@ -284,7 +289,14 @@ bucket_name = "sun-panel-uploads"
 preview_bucket_name = "sun-panel-uploads-preview"
 ```
 
-R2 用来保存用户上传的图片。前端仍然访问 `/uploads/...`，Worker 会从 R2 读取并返回图片。
+在 R2 控制台开启公开访问地址后，将公开访问基地址写入 `cloudflare-service/wrangler.toml` 的 Worker 变量：
+
+```toml
+[vars]
+R2_PUBLIC_BASE_URL = "https://你的-r2-public-development-url.r2.dev"
+```
+
+R2 用来保存用户上传的图片。上传成功后，Worker 会根据 R2 返回的 object key 和 `R2_PUBLIC_BASE_URL` 拼出可直接访问的 R2 地址，把完整地址保存到 D1，并返回给前端。后续加载图片时前端直接访问 R2 公开地址，不再通过 Worker 代理图片请求。
 
 ### 第五步：迁移远程 D1 数据库
 
@@ -428,6 +440,12 @@ VITE_APP_API_BASE_URL=http://127.0.0.1:8787/
 binding = "UPLOADS"
 bucket_name = "sun-panel-uploads"
 preview_bucket_name = "sun-panel-uploads-preview"
+```
+
+同时确认 `wrangler.toml` 的 `[vars]` 中已经配置 R2 公开访问基地址：
+
+```toml
+R2_PUBLIC_BASE_URL = "https://你的-r2-public-development-url.r2.dev"
 ```
 
 然后重新部署 Worker：

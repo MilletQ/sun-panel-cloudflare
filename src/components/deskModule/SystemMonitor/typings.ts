@@ -4,30 +4,30 @@ export enum MonitorType {
   'disk' = 'disk',
 }
 
-export interface CardStyle {
+export type CardStyle = {
   background: string
 }
 
-export interface MonitorData {
+export type MonitorData = {
   monitorType: MonitorType
   extendParam?: { [key: string]: [value:any] } | any
   description?: string
   // cardStyle: CardStyle
 }
 
-export interface ProgressStyle {
+export type ProgressStyle = {
   color: string
   railColor: string
   height: number
 }
 
-export interface GenericProgressStyleExtendParam {
+export type GenericProgressStyleExtendParam = {
   progressColor: string
   progressRailColor: string
   color: string
   backgroundColor: string
 }
 
-export interface DiskExtendParam extends GenericProgressStyleExtendParam {
+export type DiskExtendParam = {
   path: string
-}
+} & GenericProgressStyleExtendParam

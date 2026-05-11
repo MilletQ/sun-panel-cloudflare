@@ -10,21 +10,16 @@ import SvgSrcBaidu from '@/assets/search_engine_svg/baidu.svg'
 import SvgSrcBing from '@/assets/search_engine_svg/bing.svg'
 import SvgSrcGoogle from '@/assets/search_engine_svg/google.svg'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   background?: string
   textColor?: string
+  initialState?: DeskModule.SearchBox.State | null
 }>(), {
   background: '#2a2a2a6b',
   textColor: 'white',
 })
 
 const emits = defineEmits(['itemSearch'])
-
-interface State {
-  currentSearchEngine: DeskModule.SearchBox.SearchEngine
-  searchEngineList: DeskModule.SearchBox.SearchEngine[]
-  newWindowOpen: boolean
-}
 
 const moduleConfigName = 'deskModuleSearchBox'
 const moduleConfig = useModuleConfig()
@@ -50,13 +45,13 @@ const defaultSearchEngineList = ref<DeskModule.SearchBox.SearchEngine[]>([
   },
 ])
 
-const defaultState: State = {
+const defaultState: DeskModule.SearchBox.State = {
   currentSearchEngine: defaultSearchEngineList.value[0],
-  searchEngineList: [] || defaultSearchEngineList,
+  searchEngineList: defaultSearchEngineList.value,
   newWindowOpen: false,
 }
 
-const state = ref<State>({ ...defaultState })
+const state = ref<DeskModule.SearchBox.State>({ ...defaultState })
 
 const onFocus = (): void => {
   isFocused.value = true
@@ -110,7 +105,12 @@ function handleClearSearchTerm() {
 }
 
 onMounted(() => {
-  moduleConfig.getValueByNameFromCloud<State>('deskModuleSearchBox').then(({ code, data }) => {
+  if (props.initialState !== undefined) {
+    state.value = props.initialState || defaultState
+    return
+  }
+
+  moduleConfig.getValueByNameFromCloud<DeskModule.SearchBox.State>('deskModuleSearchBox').then(({ code, data }) => {
     if (code === 0)
       state.value = data || defaultState
     else
