@@ -1,12 +1,12 @@
 import type { Hono } from 'hono'
 import type { Env, ItemIcon, ItemIconGroupRow, ItemIconRow, SortItem, UserRow, Variables } from '../types'
 import { error, errorByCode, errorParam, success, successData, successListData } from '../lib/api-response'
-import { cacheKey, deleteCache, deletePanelHomeCache, getJson, putJson } from '../lib/cache'
+import { cacheKey, deleteCache, deletePanelHomeCache, getJson, getJsonWithMeta, putEdgeJson, putJson } from '../lib/cache'
 import { passwordEncryption } from '../lib/crypto'
 import { firstUserById, firstUserByUsername, getSystemSettingJson, mapItemIcon, mapItemIconGroup, mapUser, placeholders, sanitizeUser, setSystemSetting } from '../lib/db'
 import { normalizeIds, normalizeNumber, normalizeString, readJson } from '../lib/request'
 import { toStoredUploadPath, withPublicUploadUrls, withStoredUploadPaths } from '../lib/uploads'
-import { adminRequired, loginRequired, publicMode } from '../middleware/auth'
+import { adminRequired, clearUserAuthSessions, loginRequired, publicMode } from '../middleware/auth'
 
 type UserConfigBody = {
   panel?: Record<string, unknown>
@@ -48,6 +48,21 @@ type ListBody = {
   limit?: number
   page?: number
   keyword?: string
+}
+
+type PanelHomeConfigRow = {
+  panel_json: string | null
+  search_engine_json: string | null
+  search_box_json: string | null
+}
+
+async function timed<T>(handler: () => Promise<T>) {
+  const start = Date.now()
+  const value = await handler()
+  return {
+    value,
+    durationMs: elapsedMs(start),
+  }
 }
 
 async function getOrCreateGroups(env: Env, userId: number) {
@@ -107,72 +122,172 @@ function mapPublicItemIcon(env: Env, row: ItemIconRow) {
   return withPublicUploadUrls(env, mapItemIcon(row))
 }
 
-const panelHomeCacheTtl = 60 * 5
+const panelHomeCacheTtl = 60 * 60
+const panelHomeEdgeCacheTtl = 60
+
+function elapsedMs(start: number) {
+  return Date.now() - start
+}
+
+function logPanelHomeDataTiming(timing: Record<string, unknown>, start: number) {
+  console.log(JSON.stringify({
+    type: 'panel_home_data_timing',
+    ...timing,
+    handler_total_ms: elapsedMs(start),
+  }))
+}
 
 export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variables }>) {
   app.post('/panel/home/getData', publicMode, async (c) => {
-    const user = c.get('user')
-    const visitMode = c.get('visitMode')
-    const homeCacheKey = cacheKey.panelHome(user.id, visitMode)
-    const cached = await getJson(c.env, homeCacheKey)
-    if (cached !== null)
-      return successData(c, cached)
-
-    const [configRow, searchBoxRow] = await Promise.all([
-      c.env.DB.prepare('SELECT panel_json, search_engine_json FROM user_config WHERE user_id = ?')
-        .bind(user.id)
-        .first<{ panel_json: string; search_engine_json: string }>(),
-      c.env.DB.prepare('SELECT value_json FROM module_config WHERE user_id = ? AND name = ? AND deleted_at IS NULL')
-        .bind(user.id, 'deskModuleSearchBox')
-        .first<{ value_json: string }>(),
-    ])
-
-    const groups = await getOrCreateGroups(c.env, user.id)
-    const iconRows = await c.env.DB.prepare(`
-      SELECT * FROM item_icon
-      WHERE user_id = ? AND deleted_at IS NULL
-      ORDER BY item_icon_group_id, sort, created_at
-    `)
-      .bind(user.id)
-      .all<ItemIconRow>()
-
-    const itemsByGroupId = new Map<number, ItemIcon[]>()
-    for (const row of iconRows.results) {
-      const item = mapPublicItemIcon(c.env, row)
-      const list = itemsByGroupId.get(item.itemIconGroupId) ?? []
-      list.push(item)
-      itemsByGroupId.set(item.itemIconGroupId, list)
+    const start = Date.now()
+    const timing: Record<string, unknown> = {
+      route: '/api/panel/home/getData',
+      path: c.req.path,
+      method: c.req.method,
     }
-
-    let panel: Record<string, unknown> | null = null
-    let searchEngine: Record<string, unknown> | null = null
-    let searchBox: Record<string, unknown> | null = null
 
     try {
-      panel = withPublicUploadUrls(c.env, JSON.parse(configRow?.panel_json || 'null'))
-      searchEngine = withPublicUploadUrls(c.env, JSON.parse(configRow?.search_engine_json || 'null'))
-      searchBox = withPublicUploadUrls(c.env, JSON.parse(searchBoxRow?.value_json || 'null'))
-    }
-    catch {
-      panel = null
-      searchEngine = null
-      searchBox = null
-    }
+      const user = c.get('user')
+      const visitMode = c.get('visitMode')
+      timing.visit_mode = visitMode
 
-    const homeData = {
-      user: withPublicUploadUrls(c.env, sanitizeUser(user)),
-      visitMode,
-      panel,
-      searchEngine,
-      searchBox,
-      itemIconGroups: groups.map(group => ({
-        ...group,
-        items: itemsByGroupId.get(group.id ?? 0) ?? [],
-      })),
-    }
+      const homeCacheKey = cacheKey.panelHome(user.id, visitMode)
+      const cacheGetStart = Date.now()
+      const cachedResult = await getJsonWithMeta(c.env, homeCacheKey, {
+        edgeCache: true,
+        edgeTtlSeconds: panelHomeEdgeCacheTtl,
+      })
+      const cached = cachedResult.value
+      timing.cache_get_ms = elapsedMs(cacheGetStart)
+      timing.cache_hit = cached !== null
+      timing.cache_local_hit = cachedResult.localHit
+      timing.cache_edge_hit = cachedResult.edgeHit
+      if (cached !== null) {
+        if (!cachedResult.localHit && !cachedResult.edgeHit) {
+          c.executionCtx.waitUntil(putEdgeJson(homeCacheKey, cached, panelHomeEdgeCacheTtl))
+          timing.cache_edge_warm_scheduled = true
+        }
 
-    await putJson(c.env, homeCacheKey, homeData, panelHomeCacheTtl)
-    return successData(c, homeData)
+        return successData(c, cached)
+      }
+
+      const configPromise = timed(() => c.env.DB.prepare(`
+        SELECT
+          (SELECT panel_json FROM user_config WHERE user_id = ?) AS panel_json,
+          (SELECT search_engine_json FROM user_config WHERE user_id = ?) AS search_engine_json,
+          (
+            SELECT value_json
+            FROM module_config
+            WHERE user_id = ? AND name = ? AND deleted_at IS NULL
+          ) AS search_box_json
+      `)
+        .bind(user.id, user.id, user.id, 'deskModuleSearchBox')
+        .first<PanelHomeConfigRow>())
+      const groupsPromise = timed(() => getOrCreateGroups(c.env, user.id))
+      const iconsPromise = timed(() => c.env.DB.prepare(`
+        SELECT * FROM item_icon
+        WHERE user_id = ? AND deleted_at IS NULL
+        ORDER BY item_icon_group_id, sort, created_at
+      `)
+        .bind(user.id)
+        .all<ItemIconRow>())
+
+      const [configResult, groupsResult, iconsResult] = await Promise.all([
+        configPromise,
+        groupsPromise,
+        iconsPromise,
+      ])
+      const configRow = configResult.value
+      const groups = groupsResult.value
+      const iconRows = iconsResult.value
+      timing.config_db_ms = configResult.durationMs
+      timing.groups_db_ms = groupsResult.durationMs
+      timing.icons_db_ms = iconsResult.durationMs
+      timing.has_panel_config = Boolean(configRow?.panel_json || configRow?.search_engine_json)
+      timing.has_search_box_config = Boolean(configRow?.search_box_json)
+      timing.group_count = groups.length
+      timing.item_icon_count = iconRows.results.length
+
+      const mapIconsStart = Date.now()
+      const itemsByGroupId = new Map<number, ItemIcon[]>()
+      for (const row of iconRows.results) {
+        const item = mapPublicItemIcon(c.env, row)
+        const list = itemsByGroupId.get(item.itemIconGroupId) ?? []
+        list.push(item)
+        itemsByGroupId.set(item.itemIconGroupId, list)
+      }
+      timing.map_icons_ms = elapsedMs(mapIconsStart)
+      timing.item_icon_group_bucket_count = itemsByGroupId.size
+
+      let panel: Record<string, unknown> | null = null
+      let searchEngine: Record<string, unknown> | null = null
+      let searchBox: Record<string, unknown> | null = null
+
+      const parseConfigStart = Date.now()
+      try {
+        panel = withPublicUploadUrls(c.env, JSON.parse(configRow?.panel_json || 'null'))
+        searchEngine = withPublicUploadUrls(c.env, JSON.parse(configRow?.search_engine_json || 'null'))
+        searchBox = withPublicUploadUrls(c.env, JSON.parse(configRow?.search_box_json || 'null'))
+        timing.config_parse_error = false
+      }
+      catch {
+        panel = null
+        searchEngine = null
+        searchBox = null
+        timing.config_parse_error = true
+      }
+      timing.parse_config_ms = elapsedMs(parseConfigStart)
+
+      const buildResponseStart = Date.now()
+      const homeData = {
+        user: withPublicUploadUrls(c.env, sanitizeUser(user)),
+        visitMode,
+        panel,
+        searchEngine,
+        searchBox,
+        itemIconGroups: groups.map(group => ({
+          ...group,
+          items: itemsByGroupId.get(group.id ?? 0) ?? [],
+        })),
+      }
+      timing.build_response_ms = elapsedMs(buildResponseStart)
+
+      const cachePutStart = Date.now()
+      c.executionCtx.waitUntil(
+        Promise.all([
+          putJson(c.env, homeCacheKey, homeData, panelHomeCacheTtl),
+          putEdgeJson(homeCacheKey, homeData, panelHomeEdgeCacheTtl),
+        ])
+          .then(() => {
+            console.log(JSON.stringify({
+              type: 'panel_home_cache_put_timing',
+              route: '/api/panel/home/getData',
+              path: c.req.path,
+              method: c.req.method,
+              cache_put_ms: elapsedMs(cachePutStart),
+            }))
+          })
+          .catch((err) => {
+            console.error(JSON.stringify({
+              type: 'panel_home_cache_put_error',
+              route: '/api/panel/home/getData',
+              path: c.req.path,
+              method: c.req.method,
+              error: err instanceof Error ? err.message : String(err),
+            }))
+          }),
+      )
+      timing.cache_put_scheduled = true
+
+      return successData(c, homeData)
+    }
+    catch (err) {
+      timing.error = err instanceof Error ? err.name : 'unknown'
+      throw err
+    }
+    finally {
+      logPanelHomeDataTiming(timing, start)
+    }
   })
 
   app.post('/panel/userConfig/get', publicMode, async (c) => {
@@ -548,7 +663,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       .run()
 
     if (storedUser?.token)
-      await deleteCache(c.env, cacheKey.userToken(storedUser.token))
+      await clearUserAuthSessions(c.env, id, storedUser.token)
 
     await deletePanelHomeCache(c.env, id)
     const updated = await firstUserById(c.env, id)

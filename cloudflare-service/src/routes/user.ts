@@ -1,12 +1,12 @@
 import type { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import { errorByCode, errorDatabase, errorParam, success, successData } from '../lib/api-response'
-import { cacheKey, deleteCache, deletePanelHomeCache } from '../lib/cache'
+import { deletePanelHomeCache } from '../lib/cache'
 import { passwordEncryption, randomCode } from '../lib/crypto'
 import { firstUserById, sanitizeUser } from '../lib/db'
 import { normalizeString, readJson } from '../lib/request'
 import { toPublicUploadUrl, toStoredUploadPath } from '../lib/uploads'
-import { loginRequired, publicMode } from '../middleware/auth'
+import { clearUserAuthSessions, loginRequired, publicMode, refreshUserAuthSessions } from '../middleware/auth'
 
 type UpdateInfoBody = {
   headImage?: string
@@ -62,7 +62,7 @@ export function registerUserRoutes(app: Hono<{ Bindings: Env; Variables: Variabl
       return errorDatabase(c, 'failed to update user')
 
     if (user.token)
-      await deleteCache(c.env, cacheKey.userToken(user.token))
+      await refreshUserAuthSessions(c.env, { ...user, name, headImage })
 
     await deletePanelHomeCache(c.env, user.id)
     return success(c)
@@ -92,7 +92,7 @@ export function registerUserRoutes(app: Hono<{ Bindings: Env; Variables: Variabl
       return errorDatabase(c, 'failed to update password')
 
     if (storedUser.token)
-      await deleteCache(c.env, cacheKey.userToken(storedUser.token))
+      await clearUserAuthSessions(c.env, user.id, storedUser.token)
 
     return success(c)
   })

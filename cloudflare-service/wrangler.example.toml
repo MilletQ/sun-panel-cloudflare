@@ -23,3 +23,7 @@ preview_id = "replace-with-your-preview-kv-namespace-id"
 binding = "UPLOADS"
 bucket_name = "sun-panel-uploads"
 preview_bucket_name = "sun-panel-uploads-preview"
+
+[observability.logs]
+enabled = true
+invocation_logs = true
