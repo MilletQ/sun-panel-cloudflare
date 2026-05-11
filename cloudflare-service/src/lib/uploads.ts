@@ -39,6 +39,7 @@ export async function storeImageInR2(env: Env, file: File): Promise<StoredUpload
   const uploaded = await env.UPLOADS.put(objectKey, await file.arrayBuffer(), {
     httpMetadata: {
       contentType,
+      cacheControl: 'public, max-age=31536000, immutable',
     },
     customMetadata: {
       fileName: file.name,
