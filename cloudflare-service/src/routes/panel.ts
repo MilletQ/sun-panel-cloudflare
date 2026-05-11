@@ -1,7 +1,7 @@
 import type { Hono } from 'hono'
 import type { Env, ItemIcon, ItemIconGroupRow, ItemIconRow, SortItem, UserRow, Variables } from '../types'
 import { error, errorByCode, errorParam, success, successData, successListData } from '../lib/api-response'
-import { cacheKey, deleteCache } from '../lib/cache'
+import { cacheKey, deleteCache, deletePanelHomeCache, getJson, putJson } from '../lib/cache'
 import { passwordEncryption } from '../lib/crypto'
 import { firstUserById, firstUserByUsername, getSystemSettingJson, mapItemIcon, mapItemIconGroup, mapUser, placeholders, sanitizeUser, setSystemSetting } from '../lib/db'
 import { normalizeIds, normalizeNumber, normalizeString, readJson } from '../lib/request'
@@ -107,9 +107,17 @@ function mapPublicItemIcon(env: Env, row: ItemIconRow) {
   return withPublicUploadUrls(env, mapItemIcon(row))
 }
 
+const panelHomeCacheTtl = 60 * 5
+
 export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variables }>) {
   app.post('/panel/home/getData', publicMode, async (c) => {
     const user = c.get('user')
+    const visitMode = c.get('visitMode')
+    const homeCacheKey = cacheKey.panelHome(user.id, visitMode)
+    const cached = await getJson(c.env, homeCacheKey)
+    if (cached !== null)
+      return successData(c, cached)
+
     const [configRow, searchBoxRow] = await Promise.all([
       c.env.DB.prepare('SELECT panel_json, search_engine_json FROM user_config WHERE user_id = ?')
         .bind(user.id)
@@ -151,9 +159,9 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       searchBox = null
     }
 
-    return successData(c, {
+    const homeData = {
       user: withPublicUploadUrls(c.env, sanitizeUser(user)),
-      visitMode: c.get('visitMode'),
+      visitMode,
       panel,
       searchEngine,
       searchBox,
@@ -161,7 +169,10 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
         ...group,
         items: itemsByGroupId.get(group.id ?? 0) ?? [],
       })),
-    })
+    }
+
+    await putJson(c.env, homeCacheKey, homeData, panelHomeCacheTtl)
+    return successData(c, homeData)
   })
 
   app.post('/panel/userConfig/get', publicMode, async (c) => {
@@ -207,6 +218,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       .bind(user.id, JSON.stringify(panel), JSON.stringify(searchEngine))
       .run()
 
+    await deletePanelHomeCache(c.env, user.id)
     return success(c)
   })
 
@@ -259,6 +271,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       .bind(savedId, user.id)
       .first<ItemIconGroupRow>()
 
+    await deletePanelHomeCache(c.env, user.id)
     return successData(c, row ? mapItemIconGroup(row) : { id: savedId })
   })
 
@@ -284,6 +297,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       .bind(user.id, ...ids)
       .run()
 
+    await deletePanelHomeCache(c.env, user.id)
     return success(c)
   })
 
@@ -298,6 +312,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
         .run()
     }
 
+    await deletePanelHomeCache(c.env, user.id)
     return success(c)
   })
 
@@ -373,6 +388,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       .bind(savedId, user.id)
       .first<ItemIconRow>()
 
+    await deletePanelHomeCache(c.env, user.id)
     return successData(c, row ? mapPublicItemIcon(c.env, row) : { id: savedId })
   })
 
@@ -413,6 +429,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
         saved.push(mapPublicItemIcon(c.env, row))
     }
 
+    await deletePanelHomeCache(c.env, user.id)
     return successData(c, saved)
   })
 
@@ -425,6 +442,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       await c.env.DB.prepare(`DELETE FROM item_icon WHERE user_id = ? AND id IN (${placeholders(ids)})`)
         .bind(user.id, ...ids)
         .run()
+      await deletePanelHomeCache(c.env, user.id)
     }
 
     return success(c)
@@ -442,6 +460,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
         .run()
     }
 
+    await deletePanelHomeCache(c.env, user.id)
     return success(c)
   })
 
@@ -531,6 +550,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
     if (storedUser?.token)
       await deleteCache(c.env, cacheKey.userToken(storedUser.token))
 
+    await deletePanelHomeCache(c.env, id)
     const updated = await firstUserById(c.env, id)
     return successData(c, updated ? withPublicUploadUrls(c.env, sanitizeUser(updated)) : { id })
   })
@@ -608,7 +628,12 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
         return errorByCode(c, -1, 'No data record found')
     }
 
+    const previousPublicUserId = await getSystemSettingJson<number | null>(c.env, 'panel_public_user_id', null)
     await setSystemSetting(c.env, 'panel_public_user_id', userId || null)
+    if (previousPublicUserId)
+      await deletePanelHomeCache(c.env, previousPublicUserId)
+    if (userId && userId !== previousPublicUserId)
+      await deletePanelHomeCache(c.env, userId)
     return success(c)
   })
 }

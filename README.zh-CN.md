@@ -303,21 +303,23 @@ R2 用来保存用户上传的图片。上传成功后，Worker 会根据 R2 返
 
 ### 第五步：迁移远程 D1 数据库
 
-在 `cloudflare-service` 目录执行：
+在项目根目录执行：
 
 ```powershell
-npm run db:migrate:remote
+npm --prefix cloudflare-service run db:migrate:remote
 ```
 
 这一步会在 Cloudflare D1 中创建表，并写入默认管理员账号。
 
 ### 第六步：部署 Worker 后端
 
-在 `cloudflare-service` 目录执行：
+在项目根目录执行：
 
 ```powershell
-npm run deploy
+npm run back
 ```
+
+该命令会自动调用 `cloudflare-service` 目录中的 Worker 部署脚本，不需要手动进入后端目录。
 
 部署成功后，终端会输出 Worker 地址，通常类似：
 
@@ -328,12 +330,6 @@ https://sun-panel-cloudflare-service.<你的账号>.workers.dev
 记下这个地址，后面部署前端时要用。
 
 ### 第七步：配置前端生产 API 地址
-
-回到项目根目录：
-
-```powershell
-cd ..
-```
 
 生产环境前端不能继续只写 `/api`，因为 Cloudflare Pages 上的 `/api` 默认不会自动代理到 Worker。
 
@@ -379,8 +375,10 @@ npx wrangler pages project create sun-panel-cloudflare
 部署前端静态文件：
 
 ```powershell
-npx wrangler pages deploy dist --project-name sun-panel-cloudflare
+npm run front
 ```
+
+该命令会先执行 `npm run build`，然后自动执行 `npx wrangler pages deploy dist --project-name sun-panel-cloudflare` 部署前端页面。
 
 部署成功后，Cloudflare 会输出 Pages 地址，通常类似：
 
@@ -454,8 +452,7 @@ R2_PUBLIC_BASE_URL = "https://你的-r2-public-development-url.r2.dev"
 然后重新部署 Worker：
 
 ```powershell
-cd cloudflare-service
-npm run deploy
+npm run back
 ```
 
 ### 3. 登录后马上过期

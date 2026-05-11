@@ -1,4 +1,4 @@
-import type { Env } from '../types'
+import { VisitMode, type Env } from '../types'
 
 export async function getJson<T>(env: Env, key: string): Promise<T | null> {
   const value = await env.CACHE.get(key, 'json')
@@ -18,4 +18,12 @@ export const cacheKey = {
   userToken: (token: string) => `auth:user:${token}`,
   setting: (name: string) => `setting:${name}`,
   favicon: (url: string) => `favicon:${url}`,
+  panelHome: (userId: number, visitMode: number) => `panel:home:${visitMode}:${userId}`,
+}
+
+export async function deletePanelHomeCache(env: Env, userId: number) {
+  await Promise.all([
+    deleteCache(env, cacheKey.panelHome(userId, VisitMode.Login)),
+    deleteCache(env, cacheKey.panelHome(userId, VisitMode.Public)),
+  ])
 }

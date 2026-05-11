@@ -1,6 +1,7 @@
 import type { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import { errorByCode, errorParam, success, successData, successListData } from '../lib/api-response'
+import { deletePanelHomeCache } from '../lib/cache'
 import { getSystemSettingString, placeholders, setSystemSetting } from '../lib/db'
 import { normalizeIds, normalizeNumber, normalizeString, readJson } from '../lib/request'
 import { deleteUploadFromR2, isAllowedImage, storeImageInR2, toPublicUploadUrl } from '../lib/uploads'
@@ -55,6 +56,9 @@ export function registerSystemRoutes(app: Hono<{ Bindings: Env; Variables: Varia
     `)
       .bind(user.id, name, JSON.stringify(body.value ?? null))
       .run()
+
+    if (name === 'deskModuleSearchBox')
+      await deletePanelHomeCache(c.env, user.id)
 
     return success(c)
   })

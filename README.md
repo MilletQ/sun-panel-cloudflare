@@ -194,10 +194,19 @@ R2_PUBLIC_BASE_URL = "https://your-r2-public-domain.example.com"
 
 ### 5. Migrate Remote D1 And Deploy Worker
 
+Run the remote migration from the repository root:
+
 ```powershell
-npm run db:migrate:remote
-npm run deploy
+npm --prefix cloudflare-service run db:migrate:remote
 ```
+
+Deploy the Worker backend from the repository root:
+
+```powershell
+npm run back
+```
+
+The `back` script delegates to the deploy script inside `cloudflare-service/`, so you do not need to change directories.
 
 After deployment, Wrangler will print your Worker URL, for example:
 
@@ -214,13 +223,17 @@ VITE_GLOB_API_URL=https://your-worker-url.workers.dev/api
 VITE_APP_API_BASE_URL=
 ```
 
-Build the frontend:
+To build and deploy the frontend to Cloudflare Pages from the repository root:
 
 ```powershell
-npm run build
+npm run front
 ```
 
-Deploy `dist/` to Cloudflare Pages.
+The `front` script runs `npm run build` first, then deploys `dist/` with:
+
+```powershell
+npx wrangler pages deploy dist --project-name sun-panel-cloudflare
+```
 
 ## Default Account
 
@@ -267,8 +280,7 @@ R2_PUBLIC_BASE_URL = "https://your-r2-public-domain.example.com"
 Redeploy the Worker after changing `wrangler.toml`:
 
 ```powershell
-cd cloudflare-service
-npm run deploy
+npm run back
 ```
 
 ### System Monitor Data Is Empty

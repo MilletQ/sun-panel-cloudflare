@@ -1,7 +1,7 @@
 import type { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import { errorByCode, errorDatabase, errorParam, success, successData } from '../lib/api-response'
-import { cacheKey, deleteCache } from '../lib/cache'
+import { cacheKey, deleteCache, deletePanelHomeCache } from '../lib/cache'
 import { passwordEncryption, randomCode } from '../lib/crypto'
 import { firstUserById, sanitizeUser } from '../lib/db'
 import { normalizeString, readJson } from '../lib/request'
@@ -64,6 +64,7 @@ export function registerUserRoutes(app: Hono<{ Bindings: Env; Variables: Variabl
     if (user.token)
       await deleteCache(c.env, cacheKey.userToken(user.token))
 
+    await deletePanelHomeCache(c.env, user.id)
     return success(c)
   })
 

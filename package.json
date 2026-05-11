@@ -11,6 +11,8 @@
   "scripts": {
     "dev": "vite",
     "dev:service": "npm --prefix cloudflare-service run dev:local",
+    "back": "npm --prefix cloudflare-service run deploy",
+    "front": "npm run build && npx wrangler pages deploy dist --project-name sun-panel-cloudflare",
     "build": "run-s type-check build-only",
     "preview": "vite preview",
     "build-only": "vite build",
