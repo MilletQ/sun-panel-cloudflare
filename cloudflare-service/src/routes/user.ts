@@ -1,9 +1,9 @@
 import type { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import { errorByCode, errorDatabase, errorParam, success, successData } from '../lib/api-response'
-import { deletePanelHomeCache } from '../lib/cache'
 import { passwordEncryption, randomCode } from '../lib/crypto'
 import { firstUserById, sanitizeUser } from '../lib/db'
+import { refreshPanelHomeCacheAfterMutation } from '../lib/panel-home'
 import { normalizeString, readJson } from '../lib/request'
 import { toPublicUploadUrl, toStoredUploadPath } from '../lib/uploads'
 import { clearUserAuthSessions, loginRequired, publicMode, refreshUserAuthSessions } from '../middleware/auth'
@@ -64,7 +64,7 @@ export function registerUserRoutes(app: Hono<{ Bindings: Env; Variables: Variabl
     if (user.token)
       await refreshUserAuthSessions(c.env, { ...user, name, headImage })
 
-    await deletePanelHomeCache(c.env, user.id)
+    await refreshPanelHomeCacheAfterMutation(c.env, { ...user, name, headImage }, c.executionCtx)
     return success(c)
   })
 

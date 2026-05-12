@@ -1,9 +1,10 @@
 import type { Hono } from 'hono'
 import type { Env, ItemIcon, ItemIconGroupRow, ItemIconRow, SortItem, UserRow, Variables } from '../types'
 import { error, errorByCode, errorParam, success, successData, successListData } from '../lib/api-response'
-import { cacheKey, deleteCache, deletePanelHomeCache, getJson, getJsonWithMeta, putEdgeJson, putJson } from '../lib/cache'
+import { cacheKey, deletePanelHomeCache } from '../lib/cache'
 import { passwordEncryption } from '../lib/crypto'
-import { firstUserById, firstUserByUsername, getSystemSettingJson, mapItemIcon, mapItemIconGroup, mapUser, placeholders, sanitizeUser, setSystemSetting } from '../lib/db'
+import { firstUserById, firstUserByUsername, getSystemSettingJson, mapItemIconGroup, mapUser, placeholders, sanitizeUser, setSystemSetting } from '../lib/db'
+import { buildPanelHomeData, getOrCreateGroups, mapPublicItemIcon, putPanelHomeCache, readPanelHomeCache, refreshPanelHomeCacheAfterMutation, schedulePanelHomeCacheRefresh } from '../lib/panel-home'
 import { normalizeIds, normalizeNumber, normalizeString, readJson } from '../lib/request'
 import { toStoredUploadPath, withPublicUploadUrls, withStoredUploadPaths } from '../lib/uploads'
 import { adminRequired, clearUserAuthSessions, loginRequired, publicMode } from '../middleware/auth'
@@ -50,45 +51,6 @@ type ListBody = {
   keyword?: string
 }
 
-type PanelHomeConfigRow = {
-  panel_json: string | null
-  search_engine_json: string | null
-  search_box_json: string | null
-}
-
-async function timed<T>(handler: () => Promise<T>) {
-  const start = Date.now()
-  const value = await handler()
-  return {
-    value,
-    durationMs: elapsedMs(start),
-  }
-}
-
-async function getOrCreateGroups(env: Env, userId: number) {
-  const rows = await env.DB.prepare('SELECT * FROM item_icon_group WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort, created_at')
-    .bind(userId)
-    .all<ItemIconGroupRow>()
-
-  if (rows.results.length > 0)
-    return rows.results.map(mapItemIconGroup)
-
-  const inserted = await env.DB.prepare('INSERT INTO item_icon_group (title, user_id, icon) VALUES (?, ?, ?)')
-    .bind('APP', userId, 'material-symbols:ad-group-outline')
-    .run()
-
-  const id = Number(inserted.meta.last_row_id)
-  await env.DB.prepare('UPDATE item_icon SET item_icon_group_id = ? WHERE user_id = ? AND item_icon_group_id = 0')
-    .bind(id, userId)
-    .run()
-
-  const row = await env.DB.prepare('SELECT * FROM item_icon_group WHERE id = ?')
-    .bind(id)
-    .first<ItemIconGroupRow>()
-
-  return row ? [mapItemIconGroup(row)] : []
-}
-
 async function discoverFavicon(env: Env, rawUrl: string) {
   const cached = await env.CACHE.get(cacheKey.favicon(rawUrl))
   if (cached)
@@ -118,13 +80,6 @@ async function discoverFavicon(env: Env, rawUrl: string) {
   return iconUrl
 }
 
-function mapPublicItemIcon(env: Env, row: ItemIconRow) {
-  return withPublicUploadUrls(env, mapItemIcon(row))
-}
-
-const panelHomeCacheTtl = 60 * 60
-const panelHomeEdgeCacheTtl = 60
-
 function elapsedMs(start: number) {
   return Date.now() - start
 }
@@ -151,113 +106,23 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       const visitMode = c.get('visitMode')
       timing.visit_mode = visitMode
 
-      const homeCacheKey = cacheKey.panelHome(user.id, visitMode)
-      const cacheGetStart = Date.now()
-      const cachedResult = await getJsonWithMeta(c.env, homeCacheKey, {
-        edgeCache: true,
-        edgeTtlSeconds: panelHomeEdgeCacheTtl,
-      })
-      const cached = cachedResult.value
-      timing.cache_get_ms = elapsedMs(cacheGetStart)
-      timing.cache_hit = cached !== null
-      timing.cache_local_hit = cachedResult.localHit
-      timing.cache_edge_hit = cachedResult.edgeHit
-      if (cached !== null) {
-        if (!cachedResult.localHit && !cachedResult.edgeHit) {
-          c.executionCtx.waitUntil(putEdgeJson(homeCacheKey, cached, panelHomeEdgeCacheTtl))
-          timing.cache_edge_warm_scheduled = true
+      const cached = await readPanelHomeCache(c.env, user.id, visitMode, timing)
+      if (cached.edgeWarm)
+        c.executionCtx.waitUntil(cached.edgeWarm)
+      if (cached.data !== null) {
+        if (cached.stale) {
+          schedulePanelHomeCacheRefresh(c.env, user, c.executionCtx)
+          timing.cache_refresh_scheduled = true
         }
 
-        return successData(c, cached)
+        return successData(c, cached.data)
       }
 
-      const configPromise = timed(() => c.env.DB.prepare(`
-        SELECT
-          (SELECT panel_json FROM user_config WHERE user_id = ?) AS panel_json,
-          (SELECT search_engine_json FROM user_config WHERE user_id = ?) AS search_engine_json,
-          (
-            SELECT value_json
-            FROM module_config
-            WHERE user_id = ? AND name = ? AND deleted_at IS NULL
-          ) AS search_box_json
-      `)
-        .bind(user.id, user.id, user.id, 'deskModuleSearchBox')
-        .first<PanelHomeConfigRow>())
-      const groupsPromise = timed(() => getOrCreateGroups(c.env, user.id))
-      const iconsPromise = timed(() => c.env.DB.prepare(`
-        SELECT * FROM item_icon
-        WHERE user_id = ? AND deleted_at IS NULL
-        ORDER BY item_icon_group_id, sort, created_at
-      `)
-        .bind(user.id)
-        .all<ItemIconRow>())
-
-      const [configResult, groupsResult, iconsResult] = await Promise.all([
-        configPromise,
-        groupsPromise,
-        iconsPromise,
-      ])
-      const configRow = configResult.value
-      const groups = groupsResult.value
-      const iconRows = iconsResult.value
-      timing.config_db_ms = configResult.durationMs
-      timing.groups_db_ms = groupsResult.durationMs
-      timing.icons_db_ms = iconsResult.durationMs
-      timing.has_panel_config = Boolean(configRow?.panel_json || configRow?.search_engine_json)
-      timing.has_search_box_config = Boolean(configRow?.search_box_json)
-      timing.group_count = groups.length
-      timing.item_icon_count = iconRows.results.length
-
-      const mapIconsStart = Date.now()
-      const itemsByGroupId = new Map<number, ItemIcon[]>()
-      for (const row of iconRows.results) {
-        const item = mapPublicItemIcon(c.env, row)
-        const list = itemsByGroupId.get(item.itemIconGroupId) ?? []
-        list.push(item)
-        itemsByGroupId.set(item.itemIconGroupId, list)
-      }
-      timing.map_icons_ms = elapsedMs(mapIconsStart)
-      timing.item_icon_group_bucket_count = itemsByGroupId.size
-
-      let panel: Record<string, unknown> | null = null
-      let searchEngine: Record<string, unknown> | null = null
-      let searchBox: Record<string, unknown> | null = null
-
-      const parseConfigStart = Date.now()
-      try {
-        panel = withPublicUploadUrls(c.env, JSON.parse(configRow?.panel_json || 'null'))
-        searchEngine = withPublicUploadUrls(c.env, JSON.parse(configRow?.search_engine_json || 'null'))
-        searchBox = withPublicUploadUrls(c.env, JSON.parse(configRow?.search_box_json || 'null'))
-        timing.config_parse_error = false
-      }
-      catch {
-        panel = null
-        searchEngine = null
-        searchBox = null
-        timing.config_parse_error = true
-      }
-      timing.parse_config_ms = elapsedMs(parseConfigStart)
-
-      const buildResponseStart = Date.now()
-      const homeData = {
-        user: withPublicUploadUrls(c.env, sanitizeUser(user)),
-        visitMode,
-        panel,
-        searchEngine,
-        searchBox,
-        itemIconGroups: groups.map(group => ({
-          ...group,
-          items: itemsByGroupId.get(group.id ?? 0) ?? [],
-        })),
-      }
-      timing.build_response_ms = elapsedMs(buildResponseStart)
+      const homeData = await buildPanelHomeData(c.env, user, visitMode, timing)
 
       const cachePutStart = Date.now()
       c.executionCtx.waitUntil(
-        Promise.all([
-          putJson(c.env, homeCacheKey, homeData, panelHomeCacheTtl),
-          putEdgeJson(homeCacheKey, homeData, panelHomeEdgeCacheTtl),
-        ])
+        putPanelHomeCache(c.env, user.id, visitMode, homeData)
           .then(() => {
             console.log(JSON.stringify({
               type: 'panel_home_cache_put_timing',
@@ -333,7 +198,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       .bind(user.id, JSON.stringify(panel), JSON.stringify(searchEngine))
       .run()
 
-    await deletePanelHomeCache(c.env, user.id)
+    await refreshPanelHomeCacheAfterMutation(c.env, user, c.executionCtx)
     return success(c)
   })
 
@@ -386,7 +251,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       .bind(savedId, user.id)
       .first<ItemIconGroupRow>()
 
-    await deletePanelHomeCache(c.env, user.id)
+    await refreshPanelHomeCacheAfterMutation(c.env, user, c.executionCtx)
     return successData(c, row ? mapItemIconGroup(row) : { id: savedId })
   })
 
@@ -412,7 +277,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       .bind(user.id, ...ids)
       .run()
 
-    await deletePanelHomeCache(c.env, user.id)
+    await refreshPanelHomeCacheAfterMutation(c.env, user, c.executionCtx)
     return success(c)
   })
 
@@ -427,7 +292,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
         .run()
     }
 
-    await deletePanelHomeCache(c.env, user.id)
+    await refreshPanelHomeCacheAfterMutation(c.env, user, c.executionCtx)
     return success(c)
   })
 
@@ -503,7 +368,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       .bind(savedId, user.id)
       .first<ItemIconRow>()
 
-    await deletePanelHomeCache(c.env, user.id)
+    await refreshPanelHomeCacheAfterMutation(c.env, user, c.executionCtx)
     return successData(c, row ? mapPublicItemIcon(c.env, row) : { id: savedId })
   })
 
@@ -544,7 +409,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
         saved.push(mapPublicItemIcon(c.env, row))
     }
 
-    await deletePanelHomeCache(c.env, user.id)
+    await refreshPanelHomeCacheAfterMutation(c.env, user, c.executionCtx)
     return successData(c, saved)
   })
 
@@ -557,7 +422,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       await c.env.DB.prepare(`DELETE FROM item_icon WHERE user_id = ? AND id IN (${placeholders(ids)})`)
         .bind(user.id, ...ids)
         .run()
-      await deletePanelHomeCache(c.env, user.id)
+      await refreshPanelHomeCacheAfterMutation(c.env, user, c.executionCtx)
     }
 
     return success(c)
@@ -575,7 +440,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
         .run()
     }
 
-    await deletePanelHomeCache(c.env, user.id)
+    await refreshPanelHomeCacheAfterMutation(c.env, user, c.executionCtx)
     return success(c)
   })
 
@@ -665,8 +530,10 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
     if (storedUser?.token)
       await clearUserAuthSessions(c.env, id, storedUser.token)
 
-    await deletePanelHomeCache(c.env, id)
     const updated = await firstUserById(c.env, id)
+    if (updated)
+      await refreshPanelHomeCacheAfterMutation(c.env, updated, c.executionCtx)
+
     return successData(c, updated ? withPublicUploadUrls(c.env, sanitizeUser(updated)) : { id })
   })
 
@@ -716,6 +583,7 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
       await c.env.DB.prepare('DELETE FROM item_icon_group WHERE user_id = ?').bind(userId).run()
       await c.env.DB.prepare('DELETE FROM module_config WHERE user_id = ?').bind(userId).run()
       await c.env.DB.prepare('DELETE FROM user_config WHERE user_id = ?').bind(userId).run()
+      await deletePanelHomeCache(c.env, userId)
     }
     await c.env.DB.prepare(`DELETE FROM user WHERE id IN (${inSql})`).bind(...userIds).run()
 
@@ -737,9 +605,10 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
   app.post('/panel/users/setPublicVisitUser', loginRequired, adminRequired, async (c) => {
     const body = await readJson<{ userId?: number | null }>(c)
     const userId = body.userId === null ? null : normalizeNumber(body.userId)
+    let publicUser = null
     if (userId) {
-      const user = await firstUserById(c.env, userId)
-      if (!user)
+      publicUser = await firstUserById(c.env, userId)
+      if (!publicUser)
         return errorByCode(c, -1, 'No data record found')
     }
 
@@ -747,8 +616,8 @@ export function registerPanelRoutes(app: Hono<{ Bindings: Env; Variables: Variab
     await setSystemSetting(c.env, 'panel_public_user_id', userId || null)
     if (previousPublicUserId)
       await deletePanelHomeCache(c.env, previousPublicUserId)
-    if (userId && userId !== previousPublicUserId)
-      await deletePanelHomeCache(c.env, userId)
+    if (publicUser && userId !== previousPublicUserId)
+      await refreshPanelHomeCacheAfterMutation(c.env, publicUser, c.executionCtx)
     return success(c)
   })
 }

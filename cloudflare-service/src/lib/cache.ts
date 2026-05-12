@@ -16,8 +16,8 @@ const edgeCacheBaseUrl = 'https://sun-panel-cloudflare.internal/cache/'
 
 function localCacheTtlSeconds(key: string, ttlSeconds?: number) {
   let maxTtl = 10
-  if (key.startsWith('panel:home:'))
-    maxTtl = 30
+  if (key.startsWith('panel:home:') || key.startsWith('panel:home-stale:'))
+    maxTtl = 60 * 5
   else if (key.startsWith('auth:client:') || key.startsWith('auth:user:'))
     maxTtl = 15
   else if (key.startsWith('setting:'))
@@ -158,15 +158,32 @@ export const cacheKey = {
   setting: (name: string) => `setting:${name}`,
   favicon: (url: string) => `favicon:${url}`,
   panelHome: (userId: number, visitMode: number) => `panel:home:${visitMode}:${userId}`,
+  panelHomeStale: (userId: number, visitMode: number) => `panel:home-stale:${visitMode}:${userId}`,
 }
 
-export async function deletePanelHomeCache(env: Env, userId: number) {
+export async function invalidatePanelHomeFreshCache(env: Env, userId: number) {
   const loginKey = cacheKey.panelHome(userId, VisitMode.Login)
   const publicKey = cacheKey.panelHome(userId, VisitMode.Public)
 
   await Promise.all([
     deleteCache(env, loginKey),
     deleteCache(env, publicKey),
+    deleteEdgeCache(loginKey),
+    deleteEdgeCache(publicKey),
+  ])
+}
+
+export async function deletePanelHomeCache(env: Env, userId: number) {
+  const loginKey = cacheKey.panelHome(userId, VisitMode.Login)
+  const publicKey = cacheKey.panelHome(userId, VisitMode.Public)
+  const loginStaleKey = cacheKey.panelHomeStale(userId, VisitMode.Login)
+  const publicStaleKey = cacheKey.panelHomeStale(userId, VisitMode.Public)
+
+  await Promise.all([
+    deleteCache(env, loginKey),
+    deleteCache(env, publicKey),
+    deleteCache(env, loginStaleKey),
+    deleteCache(env, publicStaleKey),
     deleteEdgeCache(loginKey),
     deleteEdgeCache(publicKey),
   ])
